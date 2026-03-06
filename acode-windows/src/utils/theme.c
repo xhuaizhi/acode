@@ -1,0 +1,116 @@
+#include "theme.h"
+#include <dwmapi.h>
+
+#pragma comment(lib, "dwmapi.lib")
+
+#ifndef DWMWA_USE_IMMERSIVE_DARK_MODE
+#define DWMWA_USE_IMMERSIVE_DARK_MODE 20
+#endif
+#ifndef DWMWA_SYSTEMBACKDROP_TYPE
+#define DWMWA_SYSTEMBACKDROP_TYPE 38
+#endif
+
+typedef enum {
+    DWMSBT_AUTO = 0,
+    DWMSBT_NONE = 1,
+    DWMSBT_MAINWINDOW = 2,   /* Mica */
+    DWMSBT_TRANSIENTWINDOW = 3,
+    DWMSBT_TABBEDWINDOW = 4  /* Mica Alt */
+} DWM_SYSTEMBACKDROP_TYPE;
+
+static const ThemeColors s_darkTheme = {
+    .background     = RGB(30, 30, 30),
+    .surface        = RGB(37, 37, 38),
+    .surfaceAlt     = RGB(45, 45, 48),
+    .border         = RGB(60, 60, 60),
+    .text           = RGB(212, 212, 212),
+    .textSecondary  = RGB(128, 128, 128),
+    .accent         = RGB(0, 120, 212),
+    .accentHover    = RGB(28, 145, 232),
+
+    .synKeyword     = RGB(198, 120, 221),
+    .synType        = RGB(86, 182, 194),
+    .synString      = RGB(152, 195, 121),
+    .synNumber      = RGB(209, 154, 102),
+    .synComment     = RGB(92, 99, 112),
+    .synFunction    = RGB(97, 175, 239),
+
+    .termColors = {
+        RGB(0, 0, 0),         RGB(205, 49, 49),
+        RGB(13, 188, 121),    RGB(229, 229, 16),
+        RGB(36, 114, 200),    RGB(188, 63, 188),
+        RGB(17, 168, 205),    RGB(204, 204, 204),
+        RGB(102, 102, 102),   RGB(241, 76, 76),
+        RGB(35, 209, 139),    RGB(245, 245, 67),
+        RGB(59, 142, 234),    RGB(214, 112, 214),
+        RGB(41, 184, 219),    RGB(242, 242, 242)
+    }
+};
+
+static const ThemeColors s_lightTheme = {
+    .background     = RGB(255, 255, 255),
+    .surface        = RGB(243, 243, 243),
+    .surfaceAlt     = RGB(233, 233, 233),
+    .border         = RGB(206, 206, 206),
+    .text           = RGB(30, 30, 30),
+    .textSecondary  = RGB(100, 100, 100),
+    .accent         = RGB(0, 95, 184),
+    .accentHover    = RGB(0, 120, 212),
+
+    .synKeyword     = RGB(175, 0, 219),
+    .synType        = RGB(0, 128, 128),
+    .synString      = RGB(0, 128, 0),
+    .synNumber      = RGB(9, 134, 88),
+    .synComment     = RGB(0, 128, 0),
+    .synFunction    = RGB(121, 94, 38),
+
+    .termColors = {
+        RGB(0, 0, 0),         RGB(205, 49, 49),
+        RGB(0, 170, 0),       RGB(229, 229, 16),
+        RGB(0, 0, 170),       RGB(188, 63, 188),
+        RGB(0, 170, 170),     RGB(204, 204, 204),
+        RGB(102, 102, 102),   RGB(241, 76, 76),
+        RGB(35, 209, 139),    RGB(245, 245, 67),
+        RGB(59, 142, 234),    RGB(214, 112, 214),
+        RGB(41, 184, 219),    RGB(242, 242, 242)
+    }
+};
+
+bool theme_system_is_dark(void) {
+    DWORD value = 0;
+    DWORD size = sizeof(value);
+    LSTATUS status = RegGetValueW(
+        HKEY_CURRENT_USER,
+        L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize",
+        L"AppsUseLightTheme",
+        RRF_RT_DWORD, NULL, &value, &size
+    );
+    if (status == ERROR_SUCCESS)
+        return value == 0;
+    return false;
+}
+
+void theme_apply_to_window(HWND hwnd, bool dark) {
+    BOOL useDark = dark ? TRUE : FALSE;
+    DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &useDark, sizeof(useDark));
+}
+
+void theme_enable_mica(HWND hwnd, bool enable) {
+    DWM_SYSTEMBACKDROP_TYPE backdrop = enable ? DWMSBT_MAINWINDOW : DWMSBT_NONE;
+    DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &backdrop, sizeof(backdrop));
+
+    /* Extend frame into client area for Mica to work */
+    if (enable) {
+        MARGINS margins = { -1, -1, -1, -1 };
+        DwmExtendFrameIntoClientArea(hwnd, &margins);
+    }
+}
+
+const ThemeColors *theme_get_colors(bool dark) {
+    return dark ? &s_darkTheme : &s_lightTheme;
+}
+
+HBRUSH theme_create_bg_brush(bool dark) {
+    const ThemeColors *colors = theme_get_colors(dark);
+    return CreateSolidBrush(colors->background);
+}

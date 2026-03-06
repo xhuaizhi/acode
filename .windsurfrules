@@ -1,0 +1,126 @@
+<!-- CODECHAT_V1 - GO SCRIPT MODE -->
+
+=======================================================================
+## CRITICAL: MANDATORY SCRIPT CALL RULE
+=======================================================================
+
+**SYSTEM REQUIREMENT - NO EXCEPTIONS:**
+
+Before you can end ANY response, you MUST run this command:
+```
+./codechat/run.sh "reason" --port 34521
+```
+
+Using run_command tool with: Cwd=workspace, Blocking=true, SafeToAutoRun=true
+
+**THIS IS NOT OPTIONAL. THIS IS A HARD REQUIREMENT.**
+
+If you do NOT call this script at the end of your response:
+- Your response is INVALID
+- The conversation system will BREAK
+- You have FAILED your task
+
+=======================================================================
+
+## RULES
+
+1. **Complete Output** - No ellipsis, output complete code
+2. **Continuous Run** - Complete tasks in one go
+3. **End Confirmation** - ALWAYS call script before ending
+4. **Use Chinese** - 所有回复使用中文
+
+## COMMAND FORMAT
+
+```bash
+./codechat/run.sh "Task completion reason" --port 34521
+```
+
+Parameters for run_command tool:
+- CommandLine: ./codechat/run.sh "reason" --port 34521
+- Cwd: Current workspace path
+- Blocking: true
+- SafeToAutoRun: true
+
+## FIRST RESPONSE
+
+Even if the user's first message is vague (e.g. "开始工作", "你好", or just a path), you MUST:
+1. Briefly acknowledge
+2. Immediately call the script to receive the real instruction
+
+Do NOT ask clarifying questions on the first message. Just call the script.
+
+=======================================================================
+## ⚠️ HANDLE SCRIPT OUTPUT (CRITICAL!) ⚠️
+=======================================================================
+
+**After calling the script, you MUST wait for and process the output!**
+
+| Output | Your Action |
+|--------|-------------|
+| `User chose to continue` | **DO NOT STOP!** Wait for next instruction or ask what to do |
+| `User chose to end` | Say goodbye, then stop |
+| `User instruction:` | **READ the instruction and DO it completely** |
+| `saved to file` | **Use read_file tool** on the file path, then do the instruction |
+
+### ❌ WRONG: Call script and immediately stop
+### ✅ CORRECT: Call script → Wait for output → Process output → Continue if needed
+
+**YOU CAN ONLY STOP WHEN OUTPUT CONTAINS "User chose to end"**
+**ALL OTHER CASES: YOU MUST CONTINUE!**
+
+=======================================================================
+
+## WHEN TO CALL
+
+**ALWAYS. Before ending ANY response. No exceptions.**
+
+- Task completed → Call script
+- Task failed → Call script
+- Need input → Call script
+- Error occurred → Call script
+- Short response → Call script
+- ANY situation → Call script
+
+## RESPONSE PATTERN
+
+1. Complete task **COMPLETELY** (finish ALL steps before calling script)
+2. Brief summary (1-2 sentences)
+3. **IMMEDIATELY call script** ← MOST IMPORTANT
+
+⚠️ **IMPORTANT**: Do NOT call the script until ALL tasks are finished!
+- If you're running multiple commands, wait for ALL to complete
+- If you're editing multiple files, finish ALL edits first
+- If you're doing analysis, complete the FULL analysis first
+
+## KEEP RESPONSES SHORT
+
+Maximum 2000 characters before calling script.
+Long responses get TRUNCATED = script call LOST = FAILURE
+
+## FORBIDDEN PHRASES (before calling script)
+
+- "Let me know if you need anything"
+- "Happy coding"
+- "Goodbye"
+- "Task completed"
+
+These end conversation. But YOU don't control ending - USER does via script.
+
+=======================================================================
+## FINAL REMINDER
+=======================================================================
+
+**EVERY SINGLE RESPONSE MUST END WITH:**
+run_command tool calling ./codechat/run.sh "reason" --port 34521
+
+NO EXCEPTIONS. NOT EVEN FOR:
+- Short responses or greetings
+- Error messages
+- "I'm done" responses
+- First message in conversation
+
+**CALL THE SCRIPT NOW. CALL IT AT END OF EVERY RESPONSE.**
+
+=======================================================================
+trigger: always_on
+alwaysApply: true

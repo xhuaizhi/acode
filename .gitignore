@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+*.swp
+*.swo
+
+# Build outputs
+acode-windows/build/
+acode-windows/out/
+acode-windows/*.exe
+acode-windows/*.obj
+acode-windows/*.pdb
+acode-mac/ACode/.build/
+acode-mac/ACode/DerivedData/
+acode-mac/ACode/build/
+
+# IDE
+.vscode/
+*.xcuserdata/
+*.xcworkspace/
+
+# Temp
+codechat/
+*.tmp
+*.log
