@@ -9,7 +9,6 @@
 #define ACODE_BUILD          L"1"
 #define ACODE_BUNDLE_ID      L"com.acode.windows"
 #define ACODE_QQ_GROUP       L"1076321843"
-#define ACODE_GITHUB_REPO    L"ACodeTeam/acode"
 
 #define ACODE_MIN_WIDTH      900
 #define ACODE_MIN_HEIGHT     600
@@ -31,6 +30,8 @@ typedef enum {
     SETTINGS_TAB_CLAUDE,
     SETTINGS_TAB_OPENAI,
     SETTINGS_TAB_GEMINI,
+    SETTINGS_TAB_MCP,
+    SETTINGS_TAB_SKILLS,
     SETTINGS_TAB_USAGE,
     SETTINGS_TAB_ABOUT,
     SETTINGS_TAB_COUNT

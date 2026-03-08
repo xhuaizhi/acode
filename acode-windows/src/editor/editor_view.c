@@ -67,13 +67,17 @@ static void on_paint(HWND hwnd, EditorView *ev) {
     FillRect(memDC, &rc, bgBrush);
     DeleteObject(bgBrush);
 
-    /* Font */
-    HFONT font = CreateFontW(
-        ev->fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, ev->fontFace
-    );
-    HFONT oldFont = SelectObject(memDC, font);
+    /* Font (cached) */
+    if (!ev->fontCache || ev->fontCacheSize != ev->fontSize) {
+        if (ev->fontCache) DeleteObject(ev->fontCache);
+        ev->fontCache = CreateFontW(
+            ev->fontSize, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, FIXED_PITCH | FF_MODERN, ev->fontFace
+        );
+        ev->fontCacheSize = ev->fontSize;
+    }
+    HFONT oldFont = SelectObject(memDC, ev->fontCache);
 
     TEXTMETRICW tm;
     GetTextMetricsW(memDC, &tm);
@@ -164,7 +168,6 @@ static void on_paint(HWND hwnd, EditorView *ev) {
     }
 
     SelectObject(memDC, oldFont);
-    DeleteObject(font);
 
     BitBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, SRCCOPY);
     DeleteObject(memBmp);
@@ -381,6 +384,7 @@ static LRESULT CALLBACK editor_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         return 0;
     case WM_DESTROY:
         if (ev) {
+            if (ev->fontCache) DeleteObject(ev->fontCache);
             tb_free(&ev->buffer);
             undo_free(&ev->undo);
             syntax_result_free(&ev->syntaxCache);
@@ -449,9 +453,10 @@ void editor_view_load_file(EditorView *ev, const wchar_t *path) {
 
     char *utf8 = (char *)malloc(size + 1);
     if (!utf8) { fclose(f); return; }
-    fread(utf8, 1, size, f);
-    utf8[size] = '\0';
+    size_t bytesRead = fread(utf8, 1, size, f);
     fclose(f);
+    if ((long)bytesRead != size) { free(utf8); return; }
+    utf8[size] = '\0';
 
     wchar_t *wtext = wstr_from_utf8_alloc(utf8);
     free(utf8);

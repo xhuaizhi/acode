@@ -9,33 +9,29 @@
 
 #pragma comment(lib, "winhttp.lib")
 
-static int compare_versions(const wchar_t *remote, const wchar_t *local) {
-    int rv[3] = {0}, lv[3] = {0};
-    swscanf(remote, L"%d.%d.%d", &rv[0], &rv[1], &rv[2]);
-    swscanf(local, L"%d.%d.%d", &lv[0], &lv[1], &lv[2]);
-
-    for (int i = 0; i < 3; i++) {
-        if (rv[i] > lv[i]) return 1;
-        if (rv[i] < lv[i]) return -1;
-    }
-    return 0;
-}
+/* ACode 自建更新服务器 */
+#define UPDATE_API_HOST  L"acode.anna.tf"
+#define UPDATE_API_PORT  INTERNET_DEFAULT_HTTPS_PORT
+#define UPDATE_API_FLAGS WINHTTP_FLAG_SECURE
 
 bool update_check(UpdateCheckResult *result) {
     memset(result, 0, sizeof(UpdateCheckResult));
+
+    /* Build query path with current version */
+    wchar_t path[256];
+    _snwprintf(path, 256, L"/api/v1/update/check?version=%s&platform=windows", ACODE_VERSION);
 
     HINTERNET hSession = WinHttpOpen(L"ACode/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, NULL, NULL, 0);
     if (!hSession) return false;
 
-    HINTERNET hConnect = WinHttpConnect(hSession, L"api.github.com",
-        INTERNET_DEFAULT_HTTPS_PORT, 0);
+    HINTERNET hConnect = WinHttpConnect(hSession, UPDATE_API_HOST,
+        UPDATE_API_PORT, 0);
     if (!hConnect) { WinHttpCloseHandle(hSession); return false; }
 
     HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET",
-        L"/repos/" ACODE_GITHUB_REPO L"/releases/latest",
-        NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES,
-        WINHTTP_FLAG_SECURE);
+        path, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES,
+        UPDATE_API_FLAGS);
     if (!hRequest) {
         WinHttpCloseHandle(hConnect);
         WinHttpCloseHandle(hSession);
@@ -51,7 +47,18 @@ bool update_check(UpdateCheckResult *result) {
         return false;
     }
 
-    /* Read response */
+    /* Verify HTTP 200 */
+    DWORD statusCode = 0, statusSize = sizeof(statusCode);
+    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+        NULL, &statusCode, &statusSize, NULL);
+    if (statusCode != 200) {
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    /* Read response body */
     char *body = NULL;
     DWORD totalSize = 0;
     DWORD bytesRead;
@@ -70,41 +77,116 @@ bool update_check(UpdateCheckResult *result) {
     if (!body) return false;
     body[totalSize] = '\0';
 
-    /* Parse JSON */
+    /* Parse self-hosted API response */
     cJSON *root = cJSON_Parse(body);
     free(body);
     if (!root) return false;
 
-    cJSON *tagName = cJSON_GetObjectItem(root, "tag_name");
-    if (tagName && cJSON_IsString(tagName)) {
-        const char *ver = tagName->valuestring;
-        if (ver[0] == 'v') ver++;
-        wstr_from_utf8(ver, result->latestVersion, 32);
+    cJSON *hasUpdate = cJSON_GetObjectItem(root, "has_update");
+    result->hasUpdate = hasUpdate && cJSON_IsTrue(hasUpdate);
+
+    if (result->hasUpdate) {
+        cJSON *ver = cJSON_GetObjectItem(root, "version");
+        if (ver && cJSON_IsString(ver))
+            wstr_from_utf8(ver->valuestring, result->latestVersion, 32);
+
+        cJSON *notes = cJSON_GetObjectItem(root, "notes");
+        if (notes && cJSON_IsString(notes))
+            wstr_from_utf8(notes->valuestring, result->releaseNotes, 4096);
+
+        cJSON *dlUrl = cJSON_GetObjectItem(root, "download_url");
+        if (dlUrl && cJSON_IsString(dlUrl))
+            wstr_from_utf8(dlUrl->valuestring, result->downloadUrl, 512);
     }
 
-    cJSON *bodyText = cJSON_GetObjectItem(root, "body");
-    if (bodyText && cJSON_IsString(bodyText)) {
-        wstr_from_utf8(bodyText->valuestring, result->releaseNotes, 4096);
+    cJSON_Delete(root);
+    return true;
+}
+
+bool update_download(UpdateCheckResult *result) {
+    if (!result->hasUpdate || !result->downloadUrl[0]) return false;
+
+    /* Parse host and path from downloadUrl */
+    URL_COMPONENTS uc = { .dwStructSize = sizeof(uc) };
+    wchar_t host[256] = {0}, urlPath[512] = {0};
+    uc.lpszHostName = host;   uc.dwHostNameLength = 256;
+    uc.lpszUrlPath  = urlPath; uc.dwUrlPathLength  = 512;
+
+    if (!WinHttpCrackUrl(result->downloadUrl, 0, 0, &uc)) return false;
+
+    DWORD flags = (uc.nScheme == INTERNET_SCHEME_HTTPS) ? WINHTTP_FLAG_SECURE : 0;
+
+    HINTERNET hSession = WinHttpOpen(L"ACode/1.0",
+        WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, NULL, NULL, 0);
+    if (!hSession) return false;
+
+    HINTERNET hConnect = WinHttpConnect(hSession, host, uc.nPort, 0);
+    if (!hConnect) { WinHttpCloseHandle(hSession); return false; }
+
+    HINTERNET hRequest = WinHttpOpenRequest(hConnect, L"GET",
+        urlPath, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
+    if (!hRequest) {
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return false;
     }
 
-    /* Find Windows download asset */
-    cJSON *assets = cJSON_GetObjectItem(root, "assets");
-    if (assets && cJSON_IsArray(assets)) {
-        cJSON *asset;
-        cJSON_ArrayForEach(asset, assets) {
-            cJSON *name = cJSON_GetObjectItem(asset, "name");
-            cJSON *url = cJSON_GetObjectItem(asset, "browser_download_url");
-            if (name && url && cJSON_IsString(name) && cJSON_IsString(url)) {
-                if (strstr(name->valuestring, "windows") || strstr(name->valuestring, ".exe") || strstr(name->valuestring, ".msi")) {
-                    wstr_from_utf8(url->valuestring, result->downloadUrl, 512);
-                    break;
-                }
-            }
+    BOOL sent = WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+        WINHTTP_NO_REQUEST_DATA, 0, 0, 0);
+    if (!sent || !WinHttpReceiveResponse(hRequest, NULL)) {
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    /* Verify HTTP 200 before downloading */
+    DWORD statusCode = 0, statusSize = sizeof(statusCode);
+    WinHttpQueryHeaders(hRequest, WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+        NULL, &statusCode, &statusSize, NULL);
+    if (statusCode != 200) {
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    /* Build temp file path */
+    wchar_t tempDir[MAX_PATH];
+    GetTempPathW(MAX_PATH, tempDir);
+    _snwprintf(result->localPath, MAX_PATH, L"%sACode_v%s_setup.exe", tempDir, result->latestVersion);
+
+    HANDLE hFile = CreateFileW(result->localPath, GENERIC_WRITE, 0, NULL,
+        CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+    if (hFile == INVALID_HANDLE_VALUE) {
+        WinHttpCloseHandle(hRequest);
+        WinHttpCloseHandle(hConnect);
+        WinHttpCloseHandle(hSession);
+        return false;
+    }
+
+    char buf[8192];
+    DWORD bytesRead, bytesWritten;
+    bool ok = true;
+
+    while (WinHttpReadData(hRequest, buf, sizeof(buf), &bytesRead) && bytesRead > 0) {
+        if (!WriteFile(hFile, buf, bytesRead, &bytesWritten, NULL)) {
+            ok = false;
+            break;
         }
     }
 
-    result->hasUpdate = compare_versions(result->latestVersion, ACODE_VERSION) > 0;
+    CloseHandle(hFile);
+    WinHttpCloseHandle(hRequest);
+    WinHttpCloseHandle(hConnect);
+    WinHttpCloseHandle(hSession);
 
-    cJSON_Delete(root);
+    if (!ok) {
+        DeleteFileW(result->localPath);
+        result->localPath[0] = L'\0';
+        return false;
+    }
+
+    result->downloaded = true;
     return true;
 }

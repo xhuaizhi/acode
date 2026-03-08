@@ -3,9 +3,24 @@ import SwiftUI
 /// 底部状态栏
 struct StatusBarView: View {
     @EnvironmentObject var appState: AppState
+    @State private var visibleMessage: String?
 
     var body: some View {
-        ZStack {
+        HStack(spacing: 6) {
+            Button(action: {
+                withAnimation(.easeInOut(duration: 0.15)) {
+                    appState.showSettings.toggle()
+                }
+            }) {
+                Image(systemName: "gearshape")
+                    .font(.system(size: 13))
+                    .foregroundColor(.secondary)
+                    .frame(width: 26, height: 26)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .help("设置")
+
             HStack(spacing: 4) {
                 Image(systemName: "terminal")
                     .font(.system(size: 9))
@@ -15,50 +30,43 @@ struct StatusBarView: View {
                     .foregroundColor(.secondary)
             }
 
-            HStack(spacing: 6) {
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.15)) {
-                        appState.showSettings.toggle()
-                    }
-                }) {
-                    Image(systemName: "gearshape")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                        .frame(width: 26, height: 26)
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .help("设置")
-
-                // 当前文件信息（文件名 + 行数 + 修改日期）
-                if let fileURL = appState.activeFileURL {
-                    Text(fileURL.lastPathComponent)
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-
-                if let lineCount = appState.activeFileLineCount {
-                    Text("\(lineCount) 行")
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-
-                if let modDate = appState.activeFileModDate {
-                    Text(Self.formatDate(modDate))
-                        .font(.system(size: 10))
-                        .foregroundColor(.secondary)
-                }
-
-                ForEach(["claude_code", "openai", "gemini"], id: \.self) { tool in
-                    if let provider = appState.activeProviders[tool] {
-                        ProviderIndicator(provider: provider)
-                    }
-                }
-
-                Spacer()
-
-                TokenUsageIndicator()
+            // 临时状态消息（如 Provider 切换提示）
+            if let msg = visibleMessage {
+                Text(msg)
+                    .font(.system(size: 10))
+                    .foregroundColor(.orange)
+                    .lineLimit(1)
+                    .transition(.opacity)
             }
+
+            // 当前文件信息（文件名 + 行数 + 修改日期）
+            if let fileURL = appState.activeFileURL {
+                Text(fileURL.lastPathComponent)
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            if let lineCount = appState.activeFileLineCount {
+                Text("\(lineCount) 行")
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            if let modDate = appState.activeFileModDate {
+                Text(Self.formatDate(modDate))
+                    .font(.system(size: 10))
+                    .foregroundColor(.secondary)
+            }
+
+            ForEach(["claude_code", "openai", "gemini"], id: \.self) { tool in
+                if let provider = appState.activeProviders[tool] {
+                    ProviderIndicator(provider: provider)
+                }
+            }
+
+            Spacer()
+
+            TokenUsageIndicator()
         }
         .padding(.horizontal, 10)
         .frame(height: 26)
@@ -67,6 +75,13 @@ struct StatusBarView: View {
             Rectangle()
                 .fill(Color(nsColor: .separatorColor))
                 .frame(height: 1)
+        }
+        .onChange(of: appState.statusMessage) {
+            guard !appState.statusMessage.isEmpty else { return }
+            withAnimation { visibleMessage = appState.statusMessage }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 4) {
+                withAnimation { visibleMessage = nil }
+            }
         }
     }
 

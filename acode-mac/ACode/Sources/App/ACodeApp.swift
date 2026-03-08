@@ -13,6 +13,17 @@ struct ACodeApp: App {
         }
     }
 
+    init() {
+        // app 退出时清理所有终端 shell 进程
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.willTerminateNotification,
+            object: nil,
+            queue: .main
+        ) { _ in
+            TerminalViewCache.shared.terminateAll()
+        }
+    }
+
     var body: some Scene {
         WindowGroup {
             MainView()
@@ -62,4 +73,5 @@ extension Notification.Name {
     static let splitVertical = Notification.Name("splitVertical")
     static let providerSwitched = Notification.Name("providerSwitched")
     static let openFolder = Notification.Name("openFolder")
+    static let refreshFileTree = Notification.Name("refreshFileTree")
 }

@@ -4,13 +4,14 @@ import Foundation
 /// 负责将 Provider 配置写入各 CLI 工具的配置文件
 enum ProviderConfigWriter {
 
-    /// 原子移动：先删除目标（如果存在），再移动临时文件
+    /// 原子替换：使用 replaceItemAt 确保写入过程中崩溃不会丢失目标文件
     private static func atomicMove(from src: URL, to dst: URL) throws {
         let fm = FileManager.default
         if fm.fileExists(atPath: dst.path) {
-            try fm.removeItem(at: dst)
+            _ = try fm.replaceItemAt(dst, withItemAt: src)
+        } else {
+            try fm.moveItem(at: src, to: dst)
         }
-        try fm.moveItem(at: src, to: dst)
     }
 
     /// 根据 Provider 工具类型写入对应的配置文件

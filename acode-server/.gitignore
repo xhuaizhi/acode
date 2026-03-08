@@ -1,0 +1,10 @@
+# 编译产物
+acode-server
+acode-server.exe
+
+# 运行时数据
+config.json
+data/
+
+# Go
+go.sum

@@ -1,4 +1,5 @@
 #include "usage_tracker.h"
+#include <string.h>
 
 static UsageStats s_stats = {0};
 

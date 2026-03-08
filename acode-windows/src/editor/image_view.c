@@ -14,6 +14,19 @@
 
 #define IMAGE_VIEW_CLASS L"ACodeImageView"
 
+/* Cached GDI fonts for image view painting */
+static HFONT s_ivZoomFont = NULL;
+static HFONT s_ivPlaceholderFont = NULL;
+
+static void ensure_iv_fonts(void) {
+    if (!s_ivZoomFont)
+        s_ivZoomFont = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    if (!s_ivPlaceholderFont)
+        s_ivPlaceholderFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+}
+
 /* Supported image extensions (matches Mac ImagePreviewView) */
 static const wchar_t *s_imageExts[] = {
     L"png", L"jpg", L"jpeg", L"gif", L"bmp",
@@ -150,9 +163,8 @@ static void paint_zoom_bar(HDC hdc, RECT *rc, ImageViewData *d) {
     DeleteObject(pen);
 
     SetBkMode(hdc, TRANSPARENT);
-    HFONT font = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-    HFONT oldFont = SelectObject(hdc, font);
+    ensure_iv_fonts();
+    HFONT oldFont = SelectObject(hdc, s_ivZoomFont);
 
     int pct = (int)(d->scale * d->fitScale * 100);
     wchar_t buf[64];
@@ -166,7 +178,6 @@ static void paint_zoom_bar(HDC hdc, RECT *rc, ImageViewData *d) {
     DrawTextW(hdc, buf, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
 
     SelectObject(hdc, oldFont);
-    DeleteObject(font);
 }
 
 static LRESULT CALLBACK image_view_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -234,13 +245,11 @@ static LRESULT CALLBACK image_view_proc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
             /* No image loaded - show placeholder */
             SetBkMode(hdc, TRANSPARENT);
             SetTextColor(hdc, colors->textSecondary);
-            HFONT font = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-            HFONT oldF = SelectObject(hdc, font);
+            ensure_iv_fonts();
+            HFONT oldF = SelectObject(hdc, s_ivPlaceholderFont);
             DrawTextW(hdc, L"\u65E0\u6CD5\u52A0\u8F7D\u56FE\u7247", -1, &mainArea,
                       DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             SelectObject(hdc, oldF);
-            DeleteObject(font);
         }
 
         /* Zoom bar at bottom */

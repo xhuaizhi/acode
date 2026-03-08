@@ -9,6 +9,7 @@ struct FileEditorView: View {
     @State private var errorMessage: String?
     @State private var isModified = false
     @State private var fileType: FileContentType = .text
+    @State private var loadingURL: URL?
 
     enum FileContentType {
         case text
@@ -101,6 +102,7 @@ struct FileEditorView: View {
 
         let isText = Self.textExtensions.contains(ext) || Self.specialFileNames.contains(fileName)
         let targetURL = fileURL
+        loadingURL = targetURL
 
         // 异步读取文件内容，避免阻塞主线程
         DispatchQueue.global(qos: .userInitiated).async {
@@ -140,7 +142,7 @@ struct FileEditorView: View {
 
             DispatchQueue.main.async {
                 // 确保文件 URL 未在读取期间切换
-                guard self.fileURL == targetURL else { return }
+                guard self.loadingURL == targetURL else { return }
                 if let error = resultError {
                     self.errorMessage = error
                 } else if let text = resultContent {
@@ -324,6 +326,7 @@ struct FileTextEditor: NSViewRepresentable {
     @Binding var text: String
     @Binding var isModified: Bool
     let fileURL: URL
+    @AppStorage("editorFontSize") private var editorFontSize: Double = 13.0
 
     private var language: String {
         SyntaxHighlighter.languageForExtension(fileURL.pathExtension)
@@ -363,7 +366,7 @@ struct FileTextEditor: NSViewRepresentable {
         textView.allowsUndo = true
         textView.usesFindPanel = true
         textView.isRichText = true
-        textView.font = NSFont.monospacedSystemFont(ofSize: 13, weight: .regular)
+        textView.font = NSFont.monospacedSystemFont(ofSize: CGFloat(editorFontSize), weight: .regular)
         textView.textColor = theme.plain
         textView.backgroundColor = theme.background
         textView.insertionPointColor = theme.plain
@@ -396,6 +399,7 @@ struct FileTextEditor: NSViewRepresentable {
         let lang = language
         context.coordinator.language = lang
         context.coordinator.theme = theme
+        context.coordinator.editorFontSize = CGFloat(editorFontSize)
         context.coordinator.scrollView = scrollView
         context.coordinator.needsInitialText = true
 
@@ -405,6 +409,14 @@ struct FileTextEditor: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? SaveableTextView else { return }
 
+        /* Sync editor font size when setting changes */
+        let newFontSize = CGFloat(editorFontSize)
+        if context.coordinator.editorFontSize != newFontSize {
+            context.coordinator.editorFontSize = newFontSize
+            textView.font = NSFont.monospacedSystemFont(ofSize: newFontSize, weight: .regular)
+            context.coordinator.scheduleHighlight(for: textView.string)
+        }
+
         if textView.string != text && !context.coordinator.isEditing {
             let theme = isDark ? SyntaxHighlighter.Theme.dark : SyntaxHighlighter.Theme.light
             let lang = language
@@ -412,7 +424,7 @@ struct FileTextEditor: NSViewRepresentable {
             context.coordinator.theme = theme
 
             let plainAttrs: [NSAttributedString.Key: Any] = [
-                .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+                .font: NSFont.monospacedSystemFont(ofSize: CGFloat(editorFontSize), weight: .regular),
                 .foregroundColor: theme.plain
             ]
 
@@ -450,6 +462,7 @@ struct FileTextEditor: NSViewRepresentable {
         var isUpdatingText = false
         var language = "plain"
         var theme = SyntaxHighlighter.Theme.dark
+        var editorFontSize: CGFloat = 13
         weak var scrollView: NSScrollView?
         var needsInitialText = false
         private var highlightTimer: Timer?
@@ -484,8 +497,9 @@ struct FileTextEditor: NSViewRepresentable {
                 guard let self = self else { return }
                 let lang = self.language
                 let theme = self.theme
+                let fontSize = self.editorFontSize
                 let workItem = DispatchWorkItem { [weak self] in
-                    let highlighted = SyntaxHighlighter.highlight(text, language: lang, theme: theme)
+                    let highlighted = SyntaxHighlighter.highlight(text, language: lang, theme: theme, fontSize: fontSize)
                     DispatchQueue.main.async { [weak self] in
                         guard let self = self,
                               let sv = self.scrollView,

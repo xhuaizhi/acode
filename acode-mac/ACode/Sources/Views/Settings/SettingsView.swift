@@ -30,6 +30,10 @@ struct SettingsView: View {
             ProviderSettingsView(tool: "openai", toolName: "OpenAI Codex")
         case .gemini:
             ProviderSettingsView(tool: "gemini", toolName: "Gemini CLI")
+        case .mcp:
+            MCPSettingsView()
+        case .skills:
+            SkillsSettingsView()
         case .usage:
             UsageSettingsView()
         case .about:
@@ -45,7 +49,7 @@ struct SettingsSidebar: View {
 
     private var groupedTabs: [(String, [SettingsTab])] {
         let groups = Dictionary(grouping: SettingsTab.allCases, by: { $0.group })
-        let order = ["基础", "服务商", "高级", "其他"]
+        let order = ["基础", "服务商", "工具", "高级", "其他"]
         return order.compactMap { group in
             if let tabs = groups[group] {
                 return (group, tabs)
@@ -75,6 +79,7 @@ struct GeneralSettingsView: View {
     @AppStorage("theme") private var theme = "dark"
     @AppStorage("defaultShell") private var defaultShell = "/bin/zsh"
     @AppStorage("fontSize") private var fontSize = 14.0
+    @AppStorage("editorFontSize") private var editorFontSize = 13.0
 
     var body: some View {
         Form {
@@ -92,6 +97,14 @@ struct GeneralSettingsView: View {
                         .monospacedDigit()
                         .frame(width: 36)
                 }
+
+                HStack {
+                    Text("编辑器字体大小")
+                    Slider(value: $editorFontSize, in: 10...28, step: 1)
+                    Text("\(Int(editorFontSize))pt")
+                        .monospacedDigit()
+                        .frame(width: 36)
+                }
             }
 
             Section("终端") {
@@ -99,6 +112,7 @@ struct GeneralSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .navigationTitle("常规")
     }
 }
@@ -128,6 +142,7 @@ struct UsageSettingsView: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .navigationTitle("用量")
     }
 }
@@ -153,7 +168,7 @@ struct UsageRow: View {
 // MARK: - About Settings
 
 struct AboutSettingsView: View {
-    @StateObject private var updateChecker = UpdateChecker()
+    @EnvironmentObject var appState: AppState
 
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0.0"
@@ -214,13 +229,13 @@ struct AboutSettingsView: View {
 
             // 版本更新
             VStack(spacing: 8) {
-                if updateChecker.isChecking {
+                if appState.updateChecker.isChecking {
                     ProgressView()
                         .controlSize(.small)
                     Text("正在检查更新...")
                         .font(.caption)
                         .foregroundColor(.secondary)
-                } else if updateChecker.hasUpdate, let latest = updateChecker.latestVersion {
+                } else if appState.updateChecker.hasUpdate, let latest = appState.updateChecker.latestVersion {
                     HStack(spacing: 6) {
                         Image(systemName: "arrow.down.circle.fill")
                             .foregroundColor(.green)
@@ -228,7 +243,7 @@ struct AboutSettingsView: View {
                             .font(.callout.weight(.medium))
                     }
 
-                    if let url = updateChecker.downloadUrl, let downloadUrl = URL(string: url) {
+                    if let url = appState.updateChecker.downloadUrl, let downloadUrl = URL(string: url) {
                         Link("前往下载", destination: downloadUrl)
                             .buttonStyle(.borderedProminent)
                             .controlSize(.small)
@@ -244,7 +259,7 @@ struct AboutSettingsView: View {
                 }
 
                 Button("检查更新") {
-                    Task { await updateChecker.checkForUpdates() }
+                    Task { await appState.updateChecker.checkForUpdates() }
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
@@ -261,7 +276,7 @@ struct AboutSettingsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .navigationTitle("关于")
         .onAppear {
-            Task { await updateChecker.checkForUpdates() }
+            Task { await appState.updateChecker.checkForUpdates() }
         }
     }
 }

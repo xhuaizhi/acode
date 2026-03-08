@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACode 管理后台</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0f172a; color: #e2e8f0; min-height: 100vh;
+        }
+        .navbar {
+            background: #1e293b; border-bottom: 1px solid #334155;
+            padding: 0 24px; height: 56px; display: flex;
+            align-items: center; justify-content: space-between;
+        }
+        .navbar h1 { font-size: 18px; font-weight: 700; color: #f8fafc; }
+        .navbar .nav-links { display: flex; gap: 16px; align-items: center; }
+        .navbar a {
+            color: #94a3b8; text-decoration: none; font-size: 13px;
+            transition: color 0.2s;
+        }
+        .navbar a:hover { color: #f8fafc; }
+        .container { max-width: 1000px; margin: 0 auto; padding: 24px; }
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+        .header h2 { font-size: 22px; font-weight: 600; }
+        .btn {
+            padding: 8px 16px; border-radius: 8px; font-size: 13px;
+            font-weight: 500; cursor: pointer; border: none;
+            text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+            transition: all 0.2s;
+        }
+        .btn-primary { background: #3b82f6; color: #fff; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; border-radius: 6px; }
+        .btn-success { background: #059669; color: #fff; }
+        .btn-success:hover { background: #047857; }
+        .btn-warning { background: #d97706; color: #fff; }
+        .btn-warning:hover { background: #b45309; }
+        .btn-danger { background: #dc2626; color: #fff; }
+        .btn-danger:hover { background: #b91c1c; }
+        .btn-ghost { background: transparent; color: #94a3b8; border: 1px solid #334155; }
+        .btn-ghost:hover { background: #1e293b; color: #f8fafc; }
+        .table-card {
+            background: #1e293b; border: 1px solid #334155;
+            border-radius: 12px; overflow: hidden;
+        }
+        table { width: 100%; border-collapse: collapse; }
+        th {
+            text-align: left; padding: 12px 16px; font-size: 12px;
+            color: #64748b; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.05em; background: #1e293b;
+            border-bottom: 1px solid #334155;
+        }
+        td {
+            padding: 12px 16px; font-size: 13px; color: #cbd5e1;
+            border-bottom: 1px solid #1e293b;
+        }
+        tr:hover td { background: #162032; }
+        .badge {
+            display: inline-block; padding: 2px 8px; border-radius: 4px;
+            font-size: 11px; font-weight: 600;
+        }
+        .badge-green { background: #064e3b; color: #6ee7b7; }
+        .badge-yellow { background: #78350f; color: #fcd34d; }
+        .badge-gray { background: #334155; color: #94a3b8; }
+        .badge-blue { background: #1e3a5f; color: #93c5fd; }
+        .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+        .empty-state {
+            text-align: center; padding: 60px 20px; color: #64748b;
+        }
+        .empty-state p { font-size: 15px; margin-bottom: 16px; }
+        .stats { display: flex; gap: 16px; margin-bottom: 24px; }
+        .stat-card {
+            flex: 1; background: #1e293b; border: 1px solid #334155;
+            border-radius: 10px; padding: 16px 20px;
+        }
+        .stat-card .label { font-size: 12px; color: #64748b; margin-bottom: 4px; }
+        .stat-card .value { font-size: 24px; font-weight: 700; color: #f8fafc; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h1>ACode 管理后台</h1>
+        <div class="nav-links">
+            <a href="{{.AdminPath}}/">版本管理</a>
+            <a href="{{.AdminPath}}/password">修改密码</a>
+            <a href="/versions" target="_blank">公共版本页</a>
+            <form method="POST" action="{{.AdminPath}}/logout" style="display:inline">
+                <button type="submit" class="btn btn-ghost btn-sm">退出登录</button>
+            </form>
+        </div>
+    </div>
+    <div class="container">
+        <div class="stats">
+            <div class="stat-card">
+                <div class="label">总版本数</div>
+                <div class="value">{{len .Versions}}</div>
+            </div>
+            <div class="stat-card">
+                <div class="label">API 域名</div>
+                <div class="value" style="font-size:16px">{{.Domain}}</div>
+            </div>
+        </div>
+
+        <div class="header">
+            <h2>版本管理</h2>
+            <a href="{{.AdminPath}}/versions/new" class="btn btn-primary">+ 新建版本</a>
+        </div>
+
+        <div class="table-card">
+            {{if .Versions}}
+            <table>
+                <thead>
+                    <tr>
+                        <th>版本</th>
+                        <th>标题</th>
+                        <th>平台</th>
+                        <th>渠道</th>
+                        <th>状态</th>
+                        <th>时间</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Versions}}
+                    <tr>
+                        <td><strong>v{{.Version}}</strong>{{if .Build}} <span style="color:#64748b">({{.Build}})</span>{{end}}</td>
+                        <td>{{truncate .Title 30}}</td>
+                        <td>
+                            {{if eq .Platform "windows"}}<span class="badge badge-blue">Windows</span>
+                            {{else if eq .Platform "mac"}}<span class="badge badge-gray">Mac</span>
+                            {{else}}<span class="badge badge-gray">全平台</span>{{end}}
+                        </td>
+                        <td>
+                            {{if eq .Channel "stable"}}<span class="badge badge-green">稳定版</span>
+                            {{else}}<span class="badge badge-yellow">测试版</span>{{end}}
+                        </td>
+                        <td>
+                            {{if .IsPublished}}<span class="badge badge-green">已发布</span>
+                            {{else}}<span class="badge badge-gray">草稿</span>{{end}}
+                            {{if .IsForced}}<span class="badge badge-yellow">强制</span>{{end}}
+                        </td>
+                        <td style="white-space:nowrap">{{.CreatedAt.Format "2006-01-02"}}</td>
+                        <td>
+                            <div class="actions">
+                                <a href="{{$.AdminPath}}/versions/edit/{{.ID}}" class="btn btn-ghost btn-sm">编辑</a>
+                                <form method="POST" action="{{$.AdminPath}}/versions/toggle/{{.ID}}" style="display:inline">
+                                    {{if .IsPublished}}
+                                    <button type="submit" class="btn btn-warning btn-sm">下架</button>
+                                    {{else}}
+                                    <button type="submit" class="btn btn-success btn-sm">发布</button>
+                                    {{end}}
+                                </form>
+                                <form method="POST" action="{{$.AdminPath}}/versions/delete/{{.ID}}"
+                                      onsubmit="return confirm('确定删除 v{{.Version}}？')" style="display:inline">
+                                    <button type="submit" class="btn btn-danger btn-sm">删除</button>
+                                </form>
+                            </div>
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+            {{else}}
+            <div class="empty-state">
+                <p>暂无版本记录</p>
+                <a href="{{.AdminPath}}/versions/new" class="btn btn-primary">创建第一个版本</a>
+            </div>
+            {{end}}
+        </div>
+    </div>
+</body>
+</html>

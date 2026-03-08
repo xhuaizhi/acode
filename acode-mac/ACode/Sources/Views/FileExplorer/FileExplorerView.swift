@@ -48,6 +48,9 @@ struct FileExplorerView: View {
                         ensureRootNode(for: url)
                     }
                 }
+                .onReceive(NotificationCenter.default.publisher(for: .refreshFileTree)) { _ in
+                    refreshRoot()
+                }
 
                 // 底部路径栏
                 Divider()
@@ -278,7 +281,7 @@ struct FileTreeNodeView: View {
         do {
             try FileManager.default.moveItem(at: node.url, to: newURL)
             // 通知刷新
-            NotificationCenter.default.post(name: .openFolder, object: rootURL)
+            NotificationCenter.default.post(name: .refreshFileTree, object: nil)
         } catch {
             NSAlert(error: error).runModal()
         }
@@ -294,7 +297,7 @@ struct FileTreeNodeView: View {
         if alert.runModal() == .alertFirstButtonReturn {
             do {
                 try FileManager.default.trashItem(at: node.url, resultingItemURL: nil)
-                NotificationCenter.default.post(name: .openFolder, object: rootURL)
+                NotificationCenter.default.post(name: .refreshFileTree, object: nil)
             } catch {
                 NSAlert(error: error).runModal()
             }

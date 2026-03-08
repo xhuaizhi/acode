@@ -16,22 +16,19 @@ bool provider_list(const char *tool, Provider **out, int *count) {
     sqlite3 *db = db_get();
     if (!db) return false;
 
-    char sql[512];
-    if (tool) {
-        snprintf(sql, sizeof(sql),
-            "SELECT id,name,tool,api_key,api_base,model,is_active,sort_order,"
-            "preset_id,extra_env,icon,icon_color,notes,category "
-            "FROM providers WHERE tool='%s' ORDER BY sort_order", tool);
-    } else {
-        snprintf(sql, sizeof(sql),
-            "SELECT id,name,tool,api_key,api_base,model,is_active,sort_order,"
-            "preset_id,extra_env,icon,icon_color,notes,category "
-            "FROM providers ORDER BY sort_order");
-    }
+    const char *sql = tool
+        ? "SELECT id,name,tool,api_key,api_base,model,is_active,sort_order,"
+          "preset_id,extra_env,icon,icon_color,notes,category "
+          "FROM providers WHERE tool=? ORDER BY sort_order"
+        : "SELECT id,name,tool,api_key,api_base,model,is_active,sort_order,"
+          "preset_id,extra_env,icon,icon_color,notes,category "
+          "FROM providers ORDER BY sort_order";
 
     sqlite3_stmt *stmt;
     if (sqlite3_prepare_v2(db, sql, -1, &stmt, NULL) != SQLITE_OK)
         return false;
+    if (tool)
+        sqlite3_bind_text(stmt, 1, tool, -1, SQLITE_TRANSIENT);
 
     int capacity = 16;
     *out = (Provider *)calloc(capacity, sizeof(Provider));
@@ -177,14 +174,22 @@ bool provider_switch(int id) {
     Provider p;
     if (!provider_get(id, &p)) return false;
 
-    /* Deactivate all providers of same tool */
-    char sql[256];
-    snprintf(sql, sizeof(sql), "UPDATE providers SET is_active=0 WHERE tool='%s'", p.tool);
-    db_exec(sql);
+    /* Deactivate all providers of same tool (parameterized) */
+    sqlite3_stmt *stmt;
+    if (sqlite3_prepare_v2(db, "UPDATE providers SET is_active=0 WHERE tool=?", -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_text(stmt, 1, p.tool, -1, SQLITE_TRANSIENT);
+        sqlite3_step(stmt);
+        sqlite3_finalize(stmt);
+    }
 
-    /* Activate this one */
-    snprintf(sql, sizeof(sql), "UPDATE providers SET is_active=1 WHERE id=%d", id);
-    return db_exec(sql);
+    /* Activate this one (parameterized) */
+    if (sqlite3_prepare_v2(db, "UPDATE providers SET is_active=1 WHERE id=?", -1, &stmt, NULL) == SQLITE_OK) {
+        sqlite3_bind_int(stmt, 1, id);
+        bool ok = sqlite3_step(stmt) == SQLITE_DONE;
+        sqlite3_finalize(stmt);
+        return ok;
+    }
+    return false;
 }
 
 void provider_free_list(Provider *list) {

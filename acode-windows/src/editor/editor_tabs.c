@@ -32,6 +32,23 @@ static struct {
     bool    hoverMenuBtn;   /* menu button hovered */
 } s_tabs = { .hoverTab = -1, .hoverClose = -1, .hoverMenuBtn = false };
 
+/* Cached GDI fonts to avoid per-paint allocation */
+static HFONT s_etFont      = NULL;  /* main tab label font */
+static HFONT s_etCloseFont = NULL;  /* close button (x) font */
+static HFONT s_etMenuFont  = NULL;  /* menu button font */
+
+static void ensure_et_fonts(void) {
+    if (!s_etFont)
+        s_etFont = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    if (!s_etCloseFont)
+        s_etCloseFont = CreateFontW(9, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    if (!s_etMenuFont)
+        s_etMenuFont = CreateFontW(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+}
+
 /* ---- File extension -> icon color (matches Mac EditorTabBar) ---- */
 static COLORREF icon_color_for_ext(const wchar_t *ext) {
     if (!ext || !*ext) return RGB(128, 128, 128);
@@ -61,9 +78,8 @@ static int measure_tab_width(HDC hdc, int idx) {
 /* ---- Get tab rect (0-indexed from left) ---- */
 static RECT get_tab_rect(HDC hdc, int idx) {
     RECT r = {0, 0, 0, TAB_HEIGHT};
-    HFONT font = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-    HFONT old = SelectObject(hdc, font);
+    ensure_et_fonts();
+    HFONT old = SelectObject(hdc, s_etFont);
     int x = 0;
     for (int i = 0; i <= idx; i++) {
         int w = measure_tab_width(hdc, i);
@@ -71,7 +87,6 @@ static RECT get_tab_rect(HDC hdc, int idx) {
         x += w + TAB_GAP;
     }
     SelectObject(hdc, old);
-    DeleteObject(font);
     return r;
 }
 
@@ -89,9 +104,8 @@ static RECT get_close_rect(RECT tabRect) {
 static int hit_test_tab(POINT pt) {
     if (s_tabs.count == 0) return -1;
     HDC hdc = GetDC(s_tabs.tabBar);
-    HFONT font = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-    HFONT old = SelectObject(hdc, font);
+    ensure_et_fonts();
+    HFONT old = SelectObject(hdc, s_etFont);
     int x = 0;
     int result = -1;
     for (int i = 0; i < s_tabs.count; i++) {
@@ -103,7 +117,6 @@ static int hit_test_tab(POINT pt) {
         x += w + TAB_GAP;
     }
     SelectObject(hdc, old);
-    DeleteObject(font);
     ReleaseDC(s_tabs.tabBar, hdc);
     return result;
 }
@@ -181,9 +194,8 @@ static void paint_tab_bar(HWND hwnd, HDC hdc) {
     DeleteObject(borderPen);
 
     SetBkMode(hdc, TRANSPARENT);
-    HFONT font = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-    HFONT oldFont = SelectObject(hdc, font);
+    ensure_et_fonts();
+    HFONT oldFont = SelectObject(hdc, s_etFont);
 
     int x = 0;
     for (int i = 0; i < s_tabs.count; i++) {
@@ -250,13 +262,10 @@ static void paint_tab_bar(HWND hwnd, HDC hdc) {
                 DeleteObject(closeBg);
             }
 
-            HFONT closeFont = CreateFontW(9, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-            SelectObject(hdc, closeFont);
+            SelectObject(hdc, s_etCloseFont);
             SetTextColor(hdc, closeHover ? colors->text : colors->textSecondary);
             DrawTextW(hdc, L"\u00D7", -1, &cr, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-            SelectObject(hdc, font); /* restore main font */
-            DeleteObject(closeFont);
+            SelectObject(hdc, s_etFont); /* restore main font */
         }
 
         x += tabW + TAB_GAP;
@@ -270,17 +279,13 @@ static void paint_tab_bar(HWND hwnd, HDC hdc) {
             FillRect(hdc, &menuRect, mbg);
             DeleteObject(mbg);
         }
-        HFONT menuFont = CreateFontW(13, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        SelectObject(hdc, menuFont);
+        SelectObject(hdc, s_etMenuFont);
         SetTextColor(hdc, colors->textSecondary);
         DrawTextW(hdc, L"\u22EE", -1, &menuRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        SelectObject(hdc, font);
-        DeleteObject(menuFont);
+        SelectObject(hdc, s_etFont);
     }
 
     SelectObject(hdc, oldFont);
-    DeleteObject(font);
 }
 
 /* ---- Custom tab bar window proc ---- */
@@ -408,14 +413,12 @@ static LRESULT CALLBACK tabs_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         if (s_tabs.count == 0) {
             SetBkMode(hdc, TRANSPARENT);
             SetTextColor(hdc, colors->textSecondary);
-            HFONT font = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-            HFONT oldF = SelectObject(hdc, font);
+            ensure_et_fonts();
+            HFONT oldF = SelectObject(hdc, s_etFont);
             RECT rc;
             GetClientRect(hwnd, &rc);
             DrawTextW(hdc, L"Ctrl+O \u6253\u5F00\u6587\u4EF6\u5939", -1, &rc, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
             SelectObject(hdc, oldF);
-            DeleteObject(font);
         }
 
         EndPaint(hwnd, &ps);

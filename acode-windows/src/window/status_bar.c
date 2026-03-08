@@ -19,6 +19,19 @@ static HWND s_hwndTooltip;
 static RECT s_usageRect;  /* tracked during paint for tooltip hit-test */
 static bool s_tooltipVisible;
 
+/* Cached GDI fonts to avoid per-paint allocation */
+static HFONT s_sbFont     = NULL;
+static HFONT s_sbGearFont = NULL;
+
+static void ensure_sb_fonts(void) {
+    if (!s_sbFont)
+        s_sbFont = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    if (!s_sbGearFont)
+        s_sbGearFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
+}
+
 /* ---- Provider icon color inference (matches Mac ProviderIconInference) ---- */
 static COLORREF infer_provider_color(const char *name, const char *apiBase, const char *tool) {
     /* Keyword -> color map, matching Mac's iconMap */
@@ -91,22 +104,18 @@ static LRESULT CALLBACK statusbar_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, L
         SelectObject(hdc, oldPen);
         DeleteObject(pen);
 
-        /* Font */
-        HFONT font = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        HFONT oldFont = SelectObject(hdc, font);
+        /* Font (cached) */
+        ensure_sb_fonts();
+        HFONT oldFont = SelectObject(hdc, s_sbFont);
         SetBkMode(hdc, TRANSPARENT);
 
         /* ---- Left: settings gear + terminal count ---- */
         /* Gear icon (matches Mac gearshape button) */
-        HFONT gearFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
-        SelectObject(hdc, gearFont);
+        SelectObject(hdc, s_sbGearFont);
         SetTextColor(hdc, colors->textSecondary);
         RECT gearRect = { 6, 2, 22, rc.bottom };
         DrawTextW(hdc, L"\x2699", -1, &gearRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-        SelectObject(hdc, font);
-        DeleteObject(gearFont);
+        SelectObject(hdc, s_sbFont);
 
         wchar_t leftText[64];
         _snwprintf(leftText, 64, L"  %d \u7EC8\u7AEF", terminal_mgr_count());
@@ -254,7 +263,6 @@ static LRESULT CALLBACK statusbar_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, L
         }
 
         SelectObject(hdc, oldFont);
-        DeleteObject(font);
         EndPaint(hwnd, &ps);
         return 0;
     }

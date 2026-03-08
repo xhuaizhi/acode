@@ -302,18 +302,24 @@ static void process_char(TerminalView *tv, unsigned char ch) {
         }
         case 'L': {
             int n=params[0]?params[0]:1;
+            if(n>tv->rows-tv->cursorY) n=tv->rows-tv->cursorY;
+            if(n<=0) break;
             for(int r=tv->rows-1;r>=tv->cursorY+n;r--) memcpy(&tv->cells[r*tv->cols],&tv->cells[(r-n)*tv->cols],tv->cols*sizeof(TermCell));
             for(int r=tv->cursorY;r<tv->cursorY+n&&r<tv->rows;r++) for(int c=0;c<tv->cols;c++) clear_cell(tv,cell_at(tv,c,r));
             break;
         }
         case 'M': {
             int n=params[0]?params[0]:1;
+            if(n>tv->rows-tv->cursorY) n=tv->rows-tv->cursorY;
+            if(n<=0) break;
             for(int r=tv->cursorY;r<tv->rows-n;r++) memcpy(&tv->cells[r*tv->cols],&tv->cells[(r+n)*tv->cols],tv->cols*sizeof(TermCell));
             for(int r=tv->rows-n;r<tv->rows;r++) for(int c=0;c<tv->cols;c++) clear_cell(tv,cell_at(tv,c,r));
             break;
         }
         case 'P': {
             int n=params[0]?params[0]:1; int row=tv->cursorY;
+            if(n>tv->cols-tv->cursorX) n=tv->cols-tv->cursorX;
+            if(n<=0) break;
             for(int c=tv->cursorX;c<tv->cols-n;c++) tv->cells[row*tv->cols+c]=tv->cells[row*tv->cols+c+n];
             for(int c=tv->cols-n;c<tv->cols;c++) clear_cell(tv,cell_at(tv,c,row));
             break;
@@ -345,6 +351,8 @@ static void process_char(TerminalView *tv, unsigned char ch) {
             break;
         case '@': {
             int n=params[0]?params[0]:1; int row=tv->cursorY;
+            if(n>tv->cols-tv->cursorX) n=tv->cols-tv->cursorX;
+            if(n<=0) break;
             for(int c=tv->cols-1;c>=tv->cursorX+n;c--) tv->cells[row*tv->cols+c]=tv->cells[row*tv->cols+c-n];
             for(int c=tv->cursorX;c<tv->cursorX+n&&c<tv->cols;c++) clear_cell(tv,cell_at(tv,c,row));
             break;
@@ -464,6 +472,18 @@ static void paste_from_clipboard(TerminalView *tv) {
     CloseClipboard();
 }
 
+/* ---- Ensure cached fonts are up-to-date ---- */
+static void ensure_fonts(TerminalView *tv) {
+    if (tv->fontNormal && tv->fontCacheSize == tv->fontSize) return;
+    if (tv->fontNormal) DeleteObject(tv->fontNormal);
+    if (tv->fontBold)   DeleteObject(tv->fontBold);
+    tv->fontNormal = CreateFontW(tv->fontSize, 0,0,0, FW_NORMAL, FALSE,FALSE,FALSE,
+        DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH|FF_MODERN, tv->fontFace);
+    tv->fontBold = CreateFontW(tv->fontSize, 0,0,0, FW_BOLD, FALSE,FALSE,FALSE,
+        DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH|FF_MODERN, tv->fontFace);
+    tv->fontCacheSize = tv->fontSize;
+}
+
 /* ---- Paint ---- */
 static void on_paint(HWND hwnd, TerminalView *tv) {
     PAINTSTRUCT ps;
@@ -480,11 +500,8 @@ static void on_paint(HWND hwnd, TerminalView *tv) {
     FillRect(memDC, &rc, bgBrush);
     DeleteObject(bgBrush);
 
-    HFONT fontNormal = CreateFontW(tv->fontSize, 0,0,0, FW_NORMAL, FALSE,FALSE,FALSE,
-        DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH|FF_MODERN, tv->fontFace);
-    HFONT fontBold = CreateFontW(tv->fontSize, 0,0,0, FW_BOLD, FALSE,FALSE,FALSE,
-        DEFAULT_CHARSET, OUT_TT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY, FIXED_PITCH|FF_MODERN, tv->fontFace);
-    SelectObject(memDC, fontNormal);
+    ensure_fonts(tv);
+    SelectObject(memDC, tv->fontNormal);
 
     TEXTMETRICW tm;
     GetTextMetricsW(memDC, &tm);
@@ -500,8 +517,8 @@ static void on_paint(HWND hwnd, TerminalView *tv) {
                 if (!cell) continue;
                 if (cell->isCont) continue;
 
-                int x = col * tv->cellWidth;
-                int y = row * tv->cellHeight;
+                int x = TERM_PAD_H + col * tv->cellWidth;
+                int y = TERM_PAD_V + row * tv->cellHeight;
                 int charW = cell->isWide ? tv->cellWidth * 2 : tv->cellWidth;
 
                 COLORREF fg = cell->attr.fg;
@@ -513,7 +530,7 @@ static void on_paint(HWND hwnd, TerminalView *tv) {
                     bg = colors->text;
                 }
 
-                SelectObject(memDC, cell->attr.bold ? fontBold : fontNormal);
+                SelectObject(memDC, cell->attr.bold ? tv->fontBold : tv->fontNormal);
                 SetTextColor(memDC, fg);
                 SetBkColor(memDC, bg);
 
@@ -535,17 +552,15 @@ static void on_paint(HWND hwnd, TerminalView *tv) {
 
     if (tv->cursorVisible && tv->cursorX < tv->cols && tv->cursorY < tv->rows) {
         RECT cursorRect = {
-            tv->cursorX * tv->cellWidth, tv->cursorY * tv->cellHeight,
-            tv->cursorX * tv->cellWidth + tv->cellWidth, tv->cursorY * tv->cellHeight + tv->cellHeight
+            TERM_PAD_H + tv->cursorX * tv->cellWidth,
+            TERM_PAD_V + tv->cursorY * tv->cellHeight,
+            TERM_PAD_H + tv->cursorX * tv->cellWidth + tv->cellWidth,
+            TERM_PAD_V + tv->cursorY * tv->cellHeight + tv->cellHeight
         };
         HBRUSH cursorBrush = CreateSolidBrush(colors->text);
         FrameRect(memDC, &cursorRect, cursorBrush);
         DeleteObject(cursorBrush);
     }
-
-    SelectObject(memDC, fontNormal);
-    DeleteObject(fontNormal);
-    DeleteObject(fontBold);
 
     BitBlt(hdc, 0, 0, rc.right, rc.bottom, memDC, 0, 0, SRCCOPY);
     DeleteObject(memBmp);
@@ -592,13 +607,13 @@ static void on_char(HWND hwnd, TerminalView *tv, wchar_t ch) {
 
 static int cell_col_from_x(TerminalView *tv, int x) {
     if (tv->cellWidth <= 0) return 0;
-    int c = x / tv->cellWidth;
+    int c = (x - TERM_PAD_H) / tv->cellWidth;
     return c < 0 ? 0 : (c >= tv->cols ? tv->cols-1 : c);
 }
 
 static int cell_row_from_y(TerminalView *tv, int y) {
     if (tv->cellHeight <= 0) return 0;
-    int r = y / tv->cellHeight;
+    int r = (y - TERM_PAD_V) / tv->cellHeight;
     return r < 0 ? 0 : (r >= tv->rows ? tv->rows-1 : r);
 }
 
@@ -617,8 +632,11 @@ static LRESULT CALLBACK term_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
     case WM_SIZE: {
         if (!tv) break;
         int w = LOWORD(lParam), h = HIWORD(lParam);
-        if (tv->cellWidth > 0 && tv->cellHeight > 0 && w > 0 && h > 0) {
-            int nc = w / tv->cellWidth, nr = h / tv->cellHeight;
+        /* Subtract inner padding (matching Mac hPadding=12, vPadding=6) */
+        int contentW = w - TERM_PAD_H * 2;
+        int contentH = h - TERM_PAD_V * 2;
+        if (tv->cellWidth > 0 && tv->cellHeight > 0 && contentW > 0 && contentH > 0) {
+            int nc = contentW / tv->cellWidth, nr = contentH / tv->cellHeight;
             if (nc<1) nc=1; if (nr<1) nr=1;
             if (nc != tv->cols || nr != tv->rows) {
                 tv->cols = nc; tv->rows = nr;
@@ -688,6 +706,8 @@ static LRESULT CALLBACK term_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         if (tv) {
             KillTimer(hwnd, 1);
             conpty_destroy(&tv->pty);
+            if (tv->fontNormal) DeleteObject(tv->fontNormal);
+            if (tv->fontBold)   DeleteObject(tv->fontBold);
             if (tv->cells) free(tv->cells);
             free(tv);
         }

@@ -98,6 +98,14 @@ final class TerminalViewCache {
             view.terminate()
         }
     }
+
+    /// 终止所有缓存的终端进程（app 退出时调用）
+    func terminateAll() {
+        for (_, view) in cache {
+            view.terminate()
+        }
+        cache.removeAll()
+    }
 }
 
 /// SwiftTerm 终端视图封装
@@ -112,6 +120,12 @@ struct SwiftTerminalView: NSViewRepresentable {
         let container = NSView()
         container.wantsLayer = true
 
+        // 设置容器背景色与终端一致，用于填充 padding 区域
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        container.layer?.backgroundColor = isDark
+            ? NSColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1.0).cgColor
+            : NSColor.textBackgroundColor.cgColor
+
         let terminalView = TerminalViewCache.shared.getOrCreate(
             tabId: tabId,
             workingDirectory: workingDirectory,
@@ -124,11 +138,15 @@ struct SwiftTerminalView: NSViewRepresentable {
         terminalView.removeFromSuperview()
         container.addSubview(terminalView)
         terminalView.translatesAutoresizingMaskIntoConstraints = false
+
+        // 添加内边距，避免终端内容紧贴容器边缘
+        let hPadding: CGFloat = 12
+        let vPadding: CGFloat = 6
         NSLayoutConstraint.activate([
-            terminalView.topAnchor.constraint(equalTo: container.topAnchor),
-            terminalView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
-            terminalView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            terminalView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            terminalView.topAnchor.constraint(equalTo: container.topAnchor, constant: vPadding),
+            terminalView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -vPadding),
+            terminalView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: hPadding),
+            terminalView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -hPadding),
         ])
 
         return container
@@ -138,9 +156,18 @@ struct SwiftTerminalView: NSViewRepresentable {
         // 找到容器内的终端视图
         guard let terminalView = nsView.subviews.first as? LocalProcessTerminalView else { return }
 
-        // 字体大小更新
-        let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
-        terminalView.font = font
+        // 仅在字体大小变化时更新，避免触发 resetFont -> resize -> softReset -> showCursor 链
+        // softReset 会强制 cursorHidden=false 并调用 showCursor，覆盖 TUI 应用的 DECTCEM 光标隐藏
+        if terminalView.font.pointSize != fontSize {
+            let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
+            terminalView.font = font
+        }
+
+        // 同步容器背景色（响应深色/浅色模式切换）
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        nsView.layer?.backgroundColor = isDark
+            ? NSColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1.0).cgColor
+            : NSColor.textBackgroundColor.cgColor
 
         // 隐藏 SwiftTerm 内部的 NSScroller
         for subview in terminalView.subviews {

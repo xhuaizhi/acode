@@ -27,6 +27,22 @@ class SplitNode: ObservableObject, Identifiable {
         self.type = .split(direction: direction, first: first, second: second)
     }
 
+    /// 构建包含 N 个终端的平衡分屏树（用于恢复上次的终端布局）
+    func restoreTerminals(count: Int, direction: SplitDirection = .horizontal) {
+        guard count > 1 else { return }
+        func buildBalanced(_ n: Int) -> SplitNode {
+            if n <= 1 { return SplitNode(tab: TerminalTab()) }
+            let half = n / 2
+            return SplitNode(direction: direction, first: buildBalanced(half), second: buildBalanced(n - half))
+        }
+        // 保留当前节点的第一个终端，构建剩余部分
+        if case .terminal(let existingTab) = self.type {
+            let remaining = buildBalanced(count - 1)
+            self.type = .split(direction: direction, first: SplitNode(tab: existingTab), second: remaining)
+            self.splitRatio = 1.0 / CGFloat(count)
+        }
+    }
+
     /// 获取所有终端标签（叶子节点）
     var allTabs: [TerminalTab] {
         switch type {
@@ -121,6 +137,7 @@ struct MainView: View {
     @State private var showTerminal: Bool = true
     @State private var openedFiles: [URL] = []
     @State private var activeFileIndex: Int? = nil
+    @State private var showUpdateToast = false
 
     var body: some View {
         ZStack {
@@ -189,6 +206,35 @@ struct MainView: View {
                 InlineSettingsView(onClose: { appState.showSettings = false })
                     .transition(.opacity)
             }
+
+            // 底部更新 Toast 通知
+            if showUpdateToast, let version = appState.updateChecker.latestVersion {
+                VStack {
+                    Spacer()
+                    UpdateToastView(
+                        version: version,
+                        notes: appState.updateChecker.isDownloading
+                            ? "正在下载更新..."
+                            : (appState.updateChecker.isDownloaded ? "更新已就绪，点击重启应用" : appState.updateChecker.releaseNotes),
+                        isDownloaded: appState.updateChecker.isDownloaded,
+                        isDownloading: appState.updateChecker.isDownloading,
+                        onUpdate: {
+                            if appState.updateChecker.isDownloaded {
+                                appState.updateChecker.installAndRestart()
+                            }
+                        },
+                        onDismiss: {
+                            withAnimation(.easeOut(duration: 0.3)) {
+                                showUpdateToast = false
+                            }
+                        }
+                    )
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                    .padding(.bottom, 32)
+                    .padding(.horizontal, 20)
+                }
+                .allowsHitTesting(true)
+            }
         }
         .background(Color(nsColor: .textBackgroundColor))
         .toolbar {
@@ -210,6 +256,13 @@ struct MainView: View {
             }
         }
         .onAppear {
+            // 检查更新后重启标记
+            if let updatedVer = UserDefaults.standard.string(forKey: "lastUpdatedVersion"), !updatedVer.isEmpty {
+                UserDefaults.standard.removeObject(forKey: "lastUpdatedVersion")
+                if let url = URL(string: "https://acode.anna.tf/versions") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
             // 确保 focusedTabId 先设置（addNewTab 依赖此值）
             if focusedTabId == nil {
                 focusedTabId = rootNode.allTabs.first?.id
@@ -221,16 +274,23 @@ struct MainView: View {
                     projectURL = url
                 }
             }
-            // 恢复上次的终端数量（额外创建 N-1 个终端）
+            // 自动检查更新 → 下载 → 显示重启按钮
+            Task {
+                await appState.updateChecker.checkForUpdates()
+                if appState.updateChecker.hasUpdate {
+                    withAnimation(.spring(response: 0.5, dampingFraction: 0.8)) {
+                        showUpdateToast = true
+                    }
+                    // 后台自动下载
+                    await appState.updateChecker.downloadUpdate()
+                }
+            }
+            // 恢复上次的终端数量（构建平衡分屏树）
             let savedCount = UserDefaults.standard.integer(forKey: "lastTerminalCount")
             if savedCount > 1 {
-                for _ in 1..<savedCount {
-                    // 确保每次 addNewTab 前 focusedTabId 有效
-                    if focusedTabId == nil {
-                        focusedTabId = rootNode.allTabs.first?.id
-                    }
-                    addNewTab()
-                }
+                rootNode.restoreTerminals(count: savedCount)
+                appState.terminalCount = rootNode.allTabs.count
+                focusedTabId = rootNode.allTabs.first?.id
             }
         }
         .onReceive(NotificationCenter.default.publisher(for: .newTerminalTab)) { _ in
@@ -509,6 +569,7 @@ struct HSplitPaneView<First: View, Second: View>: View {
     @ViewBuilder let second: Second
 
     @State private var isDragging = false
+    @State private var cursorPushed = false
 
     var body: some View {
         GeometryReader { geo in
@@ -532,10 +593,12 @@ struct HSplitPaneView<First: View, Second: View>: View {
                         .contentShape(Rectangle())
                 }
                 .onHover { hovering in
-                    if hovering {
+                    if hovering, !cursorPushed {
                         NSCursor.resizeLeftRight.push()
-                    } else {
+                        cursorPushed = true
+                    } else if !hovering, cursorPushed {
                         NSCursor.pop()
+                        cursorPushed = false
                     }
                 }
                 .gesture(
@@ -564,6 +627,7 @@ struct VSplitPaneView<First: View, Second: View>: View {
     @ViewBuilder let second: Second
 
     @State private var isDragging = false
+    @State private var cursorPushed = false
 
     var body: some View {
         GeometryReader { geo in
@@ -587,10 +651,12 @@ struct VSplitPaneView<First: View, Second: View>: View {
                         .contentShape(Rectangle())
                 }
                 .onHover { hovering in
-                    if hovering {
+                    if hovering, !cursorPushed {
                         NSCursor.resizeUpDown.push()
-                    } else {
+                        cursorPushed = true
+                    } else if !hovering, cursorPushed {
                         NSCursor.pop()
+                        cursorPushed = false
                     }
                 }
                 .gesture(

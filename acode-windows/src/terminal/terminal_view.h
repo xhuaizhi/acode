@@ -8,6 +8,10 @@
 #define TERM_MAX_COLS  512
 #define TERM_MAX_ROWS  256
 
+/* Inner padding matching Mac SwiftTerminalView (hPadding=12, vPadding=6) */
+#define TERM_PAD_H     12
+#define TERM_PAD_V     6
+
 /* Terminal cell attributes */
 typedef struct {
     COLORREF fg;
@@ -46,6 +50,11 @@ typedef struct TerminalView {
     int         cellHeight;
     wchar_t     fontFace[64];
     int         fontSize;
+
+    /* Cached GDI fonts (avoid per-paint creation) */
+    HFONT       fontNormal;
+    HFONT       fontBold;
+    int         fontCacheSize;   /* fontSize when fonts were last created */
 
     /* ANSI parser state */
     int         parseState;

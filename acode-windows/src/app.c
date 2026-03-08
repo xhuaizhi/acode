@@ -75,37 +75,30 @@ void app_save_settings(void) {
     wchar_t settingsPath[MAX_PATH];
     swprintf(settingsPath, MAX_PATH, L"%s\\settings.json", g_app.appDataPath);
 
-    char json[2048];
     char shellUtf8[MAX_PATH * 2];
     wstr_to_utf8(g_app.defaultShell, shellUtf8, sizeof(shellUtf8));
 
     char lastProjectUtf8[MAX_PATH * 2] = {0};
     wstr_to_utf8(g_app.lastProjectPath, lastProjectUtf8, sizeof(lastProjectUtf8));
 
-    snprintf(json, sizeof(json),
-        "{\n"
-        "  \"theme\": %d,\n"
-        "  \"terminalFontSize\": %d,\n"
-        "  \"editorFontSize\": %d,\n"
-        "  \"defaultShell\": \"%s\",\n"
-        "  \"sidebarVisible\": %s,\n"
-        "  \"terminalVisible\": %s,\n"
-        "  \"sidebarRatio\": %.4f,\n"
-        "  \"terminalRatio\": %.4f,\n"
-        "  \"lastProjectPath\": \"%s\",\n"
-        "  \"lastTerminalCount\": %d\n"
-        "}\n",
-        (int)g_app.theme,
-        g_app.terminalFontSize,
-        g_app.editorFontSize,
-        shellUtf8,
-        g_app.sidebarVisible ? "true" : "false",
-        g_app.terminalVisible ? "true" : "false",
-        g_app.sidebarRatio,
-        g_app.terminalRatio,
-        lastProjectUtf8,
-        g_app.lastTerminalCount
-    );
+    /* Use cJSON to properly escape backslashes in Windows paths */
+    cJSON *root = cJSON_CreateObject();
+    if (!root) return;
+
+    cJSON_AddNumberToObject(root, "theme", (int)g_app.theme);
+    cJSON_AddNumberToObject(root, "terminalFontSize", g_app.terminalFontSize);
+    cJSON_AddNumberToObject(root, "editorFontSize", g_app.editorFontSize);
+    cJSON_AddStringToObject(root, "defaultShell", shellUtf8);
+    cJSON_AddBoolToObject(root, "sidebarVisible", g_app.sidebarVisible);
+    cJSON_AddBoolToObject(root, "terminalVisible", g_app.terminalVisible);
+    cJSON_AddNumberToObject(root, "sidebarRatio", (double)g_app.sidebarRatio);
+    cJSON_AddNumberToObject(root, "terminalRatio", (double)g_app.terminalRatio);
+    cJSON_AddStringToObject(root, "lastProjectPath", lastProjectUtf8);
+    cJSON_AddNumberToObject(root, "lastTerminalCount", g_app.lastTerminalCount);
+
+    char *json = cJSON_Print(root);
+    cJSON_Delete(root);
+    if (!json) return;
 
     char pathUtf8[MAX_PATH * 2];
     wstr_to_utf8(settingsPath, pathUtf8, sizeof(pathUtf8));
@@ -115,6 +108,7 @@ void app_save_settings(void) {
         fwrite(json, 1, strlen(json), f);
         fclose(f);
     }
+    free(json);
 }
 
 void app_load_settings(void) {

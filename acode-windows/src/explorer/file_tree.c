@@ -18,6 +18,35 @@ static HWND s_hwndPathBar;
 static wchar_t s_rootPath[MAX_PATH] = {0};
 static HIMAGELIST s_hImageList;
 
+/* Cached GDI fonts to avoid per-paint allocation */
+static HFONT s_ftIconFont    = NULL;
+static HFONT s_ftNameFont    = NULL;
+static HFONT s_ftRefreshFont = NULL;
+static HFONT s_ftEmptyFont   = NULL;
+static HFONT s_ftPathFont    = NULL;
+static HFONT s_ftCopyFont    = NULL;
+
+static void ensure_ft_fonts(void) {
+    if (!s_ftIconFont)
+        s_ftIconFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
+    if (!s_ftNameFont)
+        s_ftNameFont = CreateFontW(14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    if (!s_ftRefreshFont)
+        s_ftRefreshFont = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
+    if (!s_ftEmptyFont)
+        s_ftEmptyFont = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    if (!s_ftPathFont)
+        s_ftPathFont = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Cascadia Mono");
+    if (!s_ftCopyFont)
+        s_ftCopyFont = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
+}
+
 #define IDC_TOOLBAR_REFRESH  5001
 #define TOOLBAR_HEIGHT       30
 #define PATHBAR_HEIGHT       22
@@ -233,20 +262,17 @@ static void paint_toolbar(HDC hdc, RECT *rc) {
 
     SetBkMode(hdc, TRANSPARENT);
 
+    ensure_ft_fonts();
+
     if (s_rootPath[0]) {
         /* Folder icon (Unicode folder glyph) */
-        HFONT iconFont = CreateFontW(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
-        HFONT origFont = SelectObject(hdc, iconFont);
+        HFONT origFont = SelectObject(hdc, s_ftIconFont);
         SetTextColor(hdc, colors->textSecondary);
         RECT iconRect = { 8, 0, 26, rc->bottom - 1 };
         DrawTextW(hdc, L"\U0001F4C1", -1, &iconRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
 
         /* Project name */
-        HFONT nameFont = CreateFontW(14, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        SelectObject(hdc, nameFont);
-        DeleteObject(iconFont);
+        SelectObject(hdc, s_ftNameFont);
         SetTextColor(hdc, colors->text);
 
         const wchar_t *projName = wcsrchr(s_rootPath, L'\\');
@@ -256,24 +282,17 @@ static void paint_toolbar(HDC hdc, RECT *rc) {
         DrawTextW(hdc, projName, -1, &nameRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
 
         /* Refresh button (arrow clockwise glyph) */
-        HFONT refreshFont = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
-        SelectObject(hdc, refreshFont);
-        DeleteObject(nameFont);
+        SelectObject(hdc, s_ftRefreshFont);
         SetTextColor(hdc, colors->textSecondary);
         RECT refreshRect = { rc->right - 26, 0, rc->right - 4, rc->bottom - 1 };
         DrawTextW(hdc, L"\x21BB", -1, &refreshRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         SelectObject(hdc, origFont);
-        DeleteObject(refreshFont);
     } else {
-        HFONT emptyFont = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        HFONT oldFont = SelectObject(hdc, emptyFont);
+        HFONT oldFont = SelectObject(hdc, s_ftEmptyFont);
         SetTextColor(hdc, colors->textSecondary);
         RECT textRect = { 8, 0, rc->right - 4, rc->bottom - 1 };
         DrawTextW(hdc, L"\u6587\u4EF6\u6D4F\u89C8\u5668", -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE);
         SelectObject(hdc, oldFont);
-        DeleteObject(emptyFont);
     }
 }
 
@@ -293,25 +312,21 @@ static void paint_pathbar(HDC hdc, RECT *rc) {
     SelectObject(hdc, oldPen);
     DeleteObject(pen);
 
+    ensure_ft_fonts();
+
     if (s_rootPath[0]) {
         SetBkMode(hdc, TRANSPARENT);
-        HFONT pathFont = CreateFontW(11, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Cascadia Mono");
-        HFONT oldFont = SelectObject(hdc, pathFont);
+        HFONT oldFont = SelectObject(hdc, s_ftPathFont);
         SetTextColor(hdc, colors->textSecondary);
         RECT textRect = { 6, 1, rc->right - 24, rc->bottom };
         DrawTextW(hdc, s_rootPath, -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS | DT_PATH_ELLIPSIS);
 
         /* Copy button glyph (matches Mac doc.on.doc) */
-        HFONT copyFont = CreateFontW(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI Symbol");
-        SelectObject(hdc, copyFont);
-        DeleteObject(pathFont);
+        SelectObject(hdc, s_ftCopyFont);
         SetTextColor(hdc, colors->textSecondary);
         RECT copyRect = { rc->right - 22, 1, rc->right - 2, rc->bottom };
         DrawTextW(hdc, L"\x2398", -1, &copyRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         SelectObject(hdc, oldFont);
-        DeleteObject(copyFont);
     }
 }
 

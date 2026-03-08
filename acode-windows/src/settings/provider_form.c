@@ -9,6 +9,15 @@
 #include <stdio.h>
 #include <string.h>
 
+/* Cached GDI font for dialog title painting */
+static HFONT s_pfTitleFont = NULL;
+
+static void ensure_pf_fonts(void) {
+    if (!s_pfTitleFont)
+        s_pfTitleFont = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+}
+
 /* ---------------------------------------------------------------
  * Control IDs
  * --------------------------------------------------------------- */
@@ -294,9 +303,8 @@ static LRESULT CALLBACK form_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         DeleteObject(bg);
 
         /* Title */
-        HFONT titleFont = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        SelectObject(hdc, titleFont);
+        ensure_pf_fonts();
+        SelectObject(hdc, s_pfTitleFont);
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, g_app.isDarkMode ? RGB(240, 240, 240) : RGB(20, 20, 20));
 
@@ -306,7 +314,6 @@ static LRESULT CALLBACK form_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
         wstr_from_utf8(ctx->tool, toolW, 64);
         _snwprintf(titleBuf, 128, ctx->editingId > 0 ? L"编辑供应商" : L"添加供应商");
         DrawTextW(hdc, titleBuf, -1, &titleRect, DT_LEFT | DT_SINGLELINE);
-        DeleteObject(titleFont);
 
         /* Error label color */
         HWND errCtrl = GetDlgItem(hwnd, IDC_LBL_ERROR);
@@ -605,15 +612,13 @@ static LRESULT CALLBACK preset_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPAR
         FillRect(hdc, &rc, bg);
         DeleteObject(bg);
 
-        HFONT titleFont = CreateFontW(16, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
-        SelectObject(hdc, titleFont);
+        ensure_pf_fonts();
+        SelectObject(hdc, s_pfTitleFont);
         SetBkMode(hdc, TRANSPARENT);
         SetTextColor(hdc, g_app.isDarkMode ? RGB(240, 240, 240) : RGB(20, 20, 20));
 
         RECT titleRect = { 16, 12, rc.right - 16, 40 };
         DrawTextW(hdc, L"从预设添加供应商", -1, &titleRect, DT_LEFT | DT_SINGLELINE);
-        DeleteObject(titleFont);
 
         EndPaint(hwnd, &ps);
         return 0;

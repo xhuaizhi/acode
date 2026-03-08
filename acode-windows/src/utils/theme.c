@@ -28,12 +28,12 @@ static const ThemeColors s_darkTheme = {
     .accent         = RGB(0, 120, 212),
     .accentHover    = RGB(28, 145, 232),
 
-    .synKeyword     = RGB(198, 120, 221),
-    .synType        = RGB(86, 182, 194),
-    .synString      = RGB(152, 195, 121),
-    .synNumber      = RGB(209, 154, 102),
-    .synComment     = RGB(92, 99, 112),
-    .synFunction    = RGB(97, 175, 239),
+    .synKeyword     = RGB(86, 156, 214),    /* #569CD6 钢蓝 */
+    .synType        = RGB(78, 201, 176),   /* #4EC9B0 青绿 */
+    .synString      = RGB(206, 145, 120),  /* #CE9178 暖棕 */
+    .synNumber      = RGB(181, 206, 168),  /* #B5CEA8 浅绿 */
+    .synComment     = RGB(106, 153, 85),   /* #6A9955 绿色 */
+    .synFunction    = RGB(220, 220, 170),  /* #DCDCAA 淡黄 */
 
     .termColors = {
         RGB(0, 0, 0),         RGB(205, 49, 49),
@@ -57,12 +57,12 @@ static const ThemeColors s_lightTheme = {
     .accent         = RGB(0, 95, 184),
     .accentHover    = RGB(0, 120, 212),
 
-    .synKeyword     = RGB(175, 0, 219),
-    .synType        = RGB(0, 128, 128),
-    .synString      = RGB(0, 128, 0),
-    .synNumber      = RGB(9, 134, 88),
-    .synComment     = RGB(0, 128, 0),
-    .synFunction    = RGB(121, 94, 38),
+    .synKeyword     = RGB(0, 0, 255),      /* #0000FF 蓝 */
+    .synType        = RGB(38, 127, 153),  /* #267F99 青 */
+    .synString      = RGB(163, 21, 21),   /* #A31515 暗红 */
+    .synNumber      = RGB(9, 134, 88),    /* #098658 暗青 */
+    .synComment     = RGB(0, 128, 0),     /* #008000 绿 */
+    .synFunction    = RGB(121, 94, 38),   /* #795E26 棕 */
 
     .termColors = {
         RGB(0, 0, 0),         RGB(205, 49, 49),

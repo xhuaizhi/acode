@@ -8,7 +8,7 @@ struct InlineSettingsView: View {
 
     private var groupedTabs: [(String, [SettingsTab])] {
         let groups = Dictionary(grouping: SettingsTab.allCases, by: { $0.group })
-        let order = ["基础", "服务商", "高级", "其他"]
+        let order = ["基础", "服务商", "工具", "高级", "其他"]
         return order.compactMap { group in
             if let tabs = groups[group] {
                 return (group, tabs)
@@ -123,6 +123,10 @@ struct InlineSettingsView: View {
             ProviderSettingsView(tool: "openai", toolName: "OpenAI Codex")
         case .gemini:
             ProviderSettingsView(tool: "gemini", toolName: "Gemini CLI")
+        case .mcp:
+            MCPSettingsView()
+        case .skills:
+            SkillsSettingsView()
         case .usage:
             UsageSettingsView()
         case .about:

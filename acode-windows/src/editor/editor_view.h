@@ -28,6 +28,8 @@ typedef struct EditorView {
     int     fontSize;
     int     charWidth;
     int     lineHeight;
+    HFONT   fontCache;
+    int     fontCacheSize;  /* fontSize when fontCache was last created */
 
     /* Gutter */
     int     gutterWidth;

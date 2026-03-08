@@ -12,6 +12,8 @@
 #define WM_ACODE_THEME_MANUAL  (WM_USER + 105)  /* sent by settings when user changes theme */
 #define WM_ACODE_FONT_CHANGE   (WM_USER + 106)  /* wParam = new font size */
 #define WM_ACODE_EDITOR_FONT   (WM_USER + 107)  /* wParam = new editor font size */
+#define WM_ACODE_UPDATE_READY  (WM_USER + 108)  /* update check result ready */
+#define WM_ACODE_UPDATE_DOWNLOADED (WM_USER + 109)  /* update downloaded, ready to install */
 
 /* Child window IDs */
 #define IDC_SIDEBAR    1001

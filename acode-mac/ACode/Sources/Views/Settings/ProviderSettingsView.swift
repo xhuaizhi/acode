@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Provider 管理设置页 — 显示指定工具类型的所有供应商，支持添加/编辑/删除/切换
+/// Provider 管理设置页 — 原生 Form/List 风格，支持添加/编辑/删除/切换
 struct ProviderSettingsView: View {
     @EnvironmentObject var appState: AppState
     let tool: String
@@ -15,39 +15,54 @@ struct ProviderSettingsView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // 标题
-                HStack {
-                    Text("\(toolName) 供应商管理")
-                        .font(.title2.bold())
-                    Spacer()
-                }
-                .padding(.horizontal)
-
-                // Provider 列表
+        Form {
+            // 供应商列表
+            Section {
                 if toolProviders.isEmpty {
-                    emptyState
+                    HStack {
+                        Spacer()
+                        VStack(spacing: 6) {
+                            Text("暂无供应商")
+                                .foregroundColor(.secondary)
+                            Text("点击下方按钮添加")
+                                .font(.caption)
+                                .foregroundColor(.secondary.opacity(0.7))
+                        }
+                        .padding(.vertical, 20)
+                        Spacer()
+                    }
                 } else {
-                    providerList
-                }
-
-                // 操作按钮
-                HStack(spacing: 12) {
-                    Button(action: { showAddSheet = true }) {
-                        Label("添加供应商", systemImage: "plus")
+                    ForEach(toolProviders) { provider in
+                        ProviderRow(
+                            provider: provider,
+                            onEdit: { editingProvider = provider },
+                            onDelete: { appState.deleteProvider(id: provider.id) },
+                            onSwitch: { appState.switchProvider(id: provider.id) }
+                        )
                     }
-                    .buttonStyle(.borderedProminent)
-
-                    Button(action: { showPresetSheet = true }) {
-                        Label("从预设添加", systemImage: "list.bullet")
-                    }
-                    .buttonStyle(.bordered)
                 }
-                .padding(.horizontal)
+            } header: {
+                HStack {
+                    Text("已配置 (\(toolProviders.count))")
+                    Spacer()
+                    Text("点击左侧圆点切换激活")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
             }
-            .padding(.vertical)
+
+            // 操作
+            Section {
+                Button(action: { showAddSheet = true }) {
+                    Label("手动添加供应商", systemImage: "plus")
+                }
+                Button(action: { showPresetSheet = true }) {
+                    Label("从预设快速添加", systemImage: "list.bullet")
+                }
+            }
         }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .navigationTitle(toolName)
         .sheet(isPresented: $showAddSheet) {
             ProviderFormSheet(tool: tool, toolName: toolName, provider: nil) {
@@ -68,46 +83,11 @@ struct ProviderSettingsView: View {
             .environmentObject(appState)
         }
     }
-
-    // MARK: - Empty State
-
-    private var emptyState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "person.crop.circle.badge.plus")
-                .font(.system(size: 36))
-                .foregroundColor(.secondary.opacity(0.5))
-
-            Text("还没有 \(toolName) 供应商")
-                .foregroundColor(.secondary)
-
-            Text("添加一个供应商以开始使用")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.8))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-    }
-
-    // MARK: - Provider List
-
-    private var providerList: some View {
-        VStack(spacing: 8) {
-            ForEach(toolProviders) { provider in
-                ProviderCard(
-                    provider: provider,
-                    onEdit: { editingProvider = provider },
-                    onDelete: { appState.deleteProvider(id: provider.id) },
-                    onSwitch: { appState.switchProvider(id: provider.id) }
-                )
-            }
-        }
-        .padding(.horizontal)
-    }
 }
 
-// MARK: - Provider Card
+// MARK: - Provider Row (原生列表行)
 
-struct ProviderCard: View {
+struct ProviderRow: View {
     let provider: Provider
     let onEdit: () -> Void
     let onDelete: () -> Void
@@ -116,107 +96,64 @@ struct ProviderCard: View {
     @State private var showDeleteConfirm = false
 
     var body: some View {
-        HStack(spacing: 12) {
-            // 图标
-            Circle()
-                .fill(iconColor)
-                .frame(width: 32, height: 32)
-                .overlay {
-                    Image(systemName: iconSystemName)
-                        .font(.system(size: 14))
-                        .foregroundColor(.white)
-                }
+        HStack(spacing: 10) {
+            // 激活状态指示（点击切换）
+            Button(action: onSwitch) {
+                Image(systemName: provider.isActive ? "checkmark.circle.fill" : "circle")
+                    .font(.system(size: 16))
+                    .foregroundColor(provider.isActive ? .green : .secondary.opacity(0.4))
+            }
+            .buttonStyle(.plain)
+            .help(provider.isActive ? "当前激活" : "切换到此供应商")
 
             // 信息
             VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    if provider.isActive {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 10))
-                            .foregroundColor(.orange)
-                    }
+                HStack(spacing: 4) {
                     Text(provider.name)
                         .font(.system(size: 13, weight: provider.isActive ? .semibold : .regular))
+                    if provider.isActive {
+                        Text("使用中")
+                            .font(.system(size: 9, weight: .medium))
+                            .foregroundColor(.green)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                    }
                 }
 
-                HStack(spacing: 8) {
+                HStack(spacing: 6) {
                     if !provider.model.isEmpty {
                         Text(provider.model)
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                     }
-
                     Text(provider.maskedApiKey)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundColor(.secondary.opacity(0.7))
-                }
-
-                if !provider.apiBase.isEmpty {
-                    Text(provider.apiBase)
-                        .font(.system(size: 10))
+                        .font(.system(size: 10, design: .monospaced))
                         .foregroundColor(.secondary.opacity(0.6))
-                        .lineLimit(1)
                 }
             }
 
             Spacer()
 
-            // 操作按钮
-            HStack(spacing: 8) {
-                Button("编辑", action: onEdit)
-                    .buttonStyle(.bordered)
-                    .controlSize(.small)
+            // 编辑/删除
+            Button("编辑", action: onEdit)
+                .buttonStyle(.bordered)
+                .controlSize(.mini)
 
-                if !provider.isActive {
-                    Button("切换到此", action: onSwitch)
-                        .buttonStyle(.borderedProminent)
-                        .controlSize(.small)
-                }
-
-                Button(action: { showDeleteConfirm = true }) {
-                    Image(systemName: "trash")
-                        .foregroundColor(.red)
-                }
-                .buttonStyle(.plain)
-                .confirmationDialog("确认删除", isPresented: $showDeleteConfirm) {
-                    Button("删除", role: .destructive, action: onDelete)
-                    Button("取消", role: .cancel) {}
-                } message: {
-                    Text("确定要删除供应商 \"\(provider.name)\" 吗？此操作不可撤销。")
-                }
+            Button(action: { showDeleteConfirm = true }) {
+                Image(systemName: "trash")
+                    .font(.system(size: 11))
+                    .foregroundColor(.red.opacity(0.7))
+            }
+            .buttonStyle(.plain)
+            .confirmationDialog("确认删除", isPresented: $showDeleteConfirm) {
+                Button("删除", role: .destructive, action: onDelete)
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("确定要删除供应商 \"\(provider.name)\" 吗？")
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: .controlBackgroundColor))
-                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(provider.isActive ? Color.green.opacity(0.5) : Color.clear, lineWidth: 1.5)
-        )
-    }
-
-    private var iconColor: Color {
-        if let hex = provider.iconColor {
-            return Color(hex: hex)
-        }
-        switch provider.tool {
-        case "claude_code": return Color(hex: "#D4915D")
-        case "openai": return Color(hex: "#00A67E")
-        case "gemini": return Color(hex: "#4285F4")
-        default: return .gray
-        }
-    }
-
-    private var iconSystemName: String {
-        switch provider.tool {
-        case "claude_code": return "bubble.left.fill"
-        case "openai": return "hexagon"
-        case "gemini": return "sparkle"
-        default: return "server.rack"
-        }
+        .padding(.vertical, 2)
     }
 }
 

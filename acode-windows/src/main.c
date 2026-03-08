@@ -1,6 +1,8 @@
 #include <windows.h>
 #include <commctrl.h>
 #include <ole2.h>
+#include <shellapi.h>
+#include <stdio.h>
 #include "app.h"
 #include "window/main_window.h"
 #include "database/database.h"
@@ -139,6 +141,26 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance,
 
     ShowWindow(hwnd, nCmdShow);
     UpdateWindow(hwnd);
+
+    /* Check for post-update restart flag */
+    {
+        wchar_t flagPath[MAX_PATH];
+        GetTempPathW(MAX_PATH, flagPath);
+        wcscat(flagPath, L"acode_updated.flag");
+        HANDLE hFlag = CreateFileW(flagPath, GENERIC_READ, FILE_SHARE_READ, NULL,
+            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+        if (hFlag != INVALID_HANDLE_VALUE) {
+            char ver[64] = {0};
+            DWORD br;
+            ReadFile(hFlag, ver, 63, &br, NULL);
+            CloseHandle(hFlag);
+            DeleteFileW(flagPath);
+            /* Open version history page */
+            wchar_t url[256];
+            _snwprintf(url, 256, L"https://acode.anna.tf/versions");
+            ShellExecuteW(NULL, L"open", url, NULL, NULL, SW_SHOWNORMAL);
+        }
+    }
 
     /* Message loop */
     MSG msg;

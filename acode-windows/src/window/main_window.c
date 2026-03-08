@@ -4,11 +4,15 @@
 #include "status_bar.h"
 #include "../app.h"
 #include "../utils/theme.h"
+#include "../utils/wstr.h"
 #include "../terminal/terminal_mgr.h"
 #include "../explorer/file_tree.h"
 #include "../editor/editor_tabs.h"
+#include "../services/update_checker.h"
 #include <commctrl.h>
 #include <windowsx.h>
+#include <shellapi.h>
+#include <stdio.h>
 
 #pragma comment(lib, "comctl32.lib")
 
@@ -18,6 +22,22 @@ static HWND s_hwndTerminal;
 static HWND s_hwndStatusBar;
 static HWND s_hwndSplitterL;
 static HWND s_hwndSplitterR;
+
+/* ---- Update toast bar ---- */
+#define IDC_UPDATE_TOAST  1020
+#define IDC_UPDATE_BTN    1021
+#define IDC_UPDATE_CLOSE  1022
+#define UPDATE_TOAST_H    40
+
+static HWND s_hwndUpdateToast = NULL;
+static HWND s_hwndUpdateBtn   = NULL;
+static HWND s_hwndUpdateClose = NULL;
+static HWND s_hwndUpdateLabel = NULL;
+static bool s_updateAvailable = false;
+static UpdateCheckResult s_updateResult;
+
+static HFONT s_toastFont     = NULL;
+static HFONT s_toastFontBold = NULL;
 
 /* Splitter dragging state */
 static bool s_draggingLeft = false;
@@ -49,8 +69,9 @@ void main_window_layout(HWND hwnd) {
 
     int totalW = rc.right - rc.left;
     int totalH = rc.bottom - rc.top;
-    int statusH = 28;
-    int contentH = totalH - statusH;
+    int statusH = 26;
+    int toastH = (s_updateAvailable && s_hwndUpdateToast) ? UPDATE_TOAST_H : 0;
+    int contentH = totalH - statusH - toastH;
 
     if (contentH < 1) contentH = 1;
     if (totalW < 1) totalW = 1;
@@ -117,9 +138,19 @@ void main_window_layout(HWND hwnd) {
         }
     }
 
+    /* Update toast bar (above status bar) */
+    if (s_hwndUpdateToast && s_updateAvailable) {
+        MoveWindow(s_hwndUpdateToast, 0, contentH, totalW, toastH, TRUE);
+        /* Buttons are children of hwnd, position relative to main window */
+        if (s_hwndUpdateBtn)
+            MoveWindow(s_hwndUpdateBtn, totalW - 120, contentH + 8, 80, 24, TRUE);
+        if (s_hwndUpdateClose)
+            MoveWindow(s_hwndUpdateClose, totalW - 32, contentH + 8, 24, 24, TRUE);
+    }
+
     /* Status bar at bottom */
     if (s_hwndStatusBar) {
-        MoveWindow(s_hwndStatusBar, 0, contentH, totalW, statusH, TRUE);
+        MoveWindow(s_hwndStatusBar, 0, contentH + toastH, totalW, statusH, TRUE);
     }
 }
 
@@ -263,6 +294,73 @@ HACCEL main_window_create_accel(void) {
     return CreateAcceleratorTableW(accelTable, _countof(accelTable));
 }
 
+/* ---- Background update check + download thread ---- */
+static DWORD WINAPI update_check_thread(LPVOID param) {
+    HWND hwnd = (HWND)param;
+    if (update_check(&s_updateResult) && s_updateResult.hasUpdate) {
+        /* Notify UI that update was found (optional: show downloading state) */
+        PostMessageW(hwnd, WM_ACODE_UPDATE_READY, 0, 0);
+        /* Download in background */
+        if (update_download(&s_updateResult)) {
+            PostMessageW(hwnd, WM_ACODE_UPDATE_DOWNLOADED, 0, 0);
+        }
+    }
+    return 0;
+}
+
+/* ---- Show update toast bar above status bar ---- */
+static void show_update_toast(HWND hwnd, bool downloaded) {
+    HINSTANCE hInst = g_app.hInstance;
+
+    if (!s_toastFont)
+        s_toastFont = CreateFontW(13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    if (!s_toastFontBold)
+        s_toastFontBold = CreateFontW(13, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, 0, 0, CLEARTYPE_QUALITY, 0, L"Segoe UI");
+    HFONT font = s_toastFont;
+    HFONT fontBold = s_toastFontBold;
+
+    if (!s_hwndUpdateToast) {
+        /* Create container + label for the first time */
+        s_hwndUpdateToast = CreateWindowExW(0, L"STATIC", NULL,
+            WS_CHILD | WS_VISIBLE,
+            0, 0, 100, UPDATE_TOAST_H, hwnd, (HMENU)IDC_UPDATE_TOAST, hInst, NULL);
+
+        s_hwndUpdateLabel = CreateWindowExW(0, L"STATIC", L"",
+            WS_CHILD | WS_VISIBLE | SS_LEFT | SS_CENTERIMAGE,
+            12, 0, 360, UPDATE_TOAST_H, s_hwndUpdateToast, NULL, hInst, NULL);
+        SendMessageW(s_hwndUpdateLabel, WM_SETFONT, (WPARAM)fontBold, FALSE);
+
+        s_hwndUpdateClose = CreateWindowExW(0, L"BUTTON", L"\u00D7",
+            WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_FLAT,
+            0, 0, 24, 24, hwnd, (HMENU)IDC_UPDATE_CLOSE, hInst, NULL);
+        SendMessageW(s_hwndUpdateClose, WM_SETFONT, (WPARAM)font, FALSE);
+    }
+
+    if (downloaded) {
+        /* Ready to install: show restart button */
+        wchar_t text[128];
+        _snwprintf(text, 128, L"\u2705  v%s \u66F4\u65B0\u5DF2\u5C31\u7EEA",
+                   s_updateResult.latestVersion);
+        SetWindowTextW(s_hwndUpdateLabel, text);
+
+        if (!s_hwndUpdateBtn) {
+            s_hwndUpdateBtn = CreateWindowExW(0, L"BUTTON",
+                L"\u91CD\u542F\u66F4\u65B0",
+                WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+                0, 0, 80, 24, hwnd, (HMENU)IDC_UPDATE_BTN, hInst, NULL);
+            SendMessageW(s_hwndUpdateBtn, WM_SETFONT, (WPARAM)font, FALSE);
+        }
+    } else {
+        /* Downloading phase */
+        wchar_t text[128];
+        _snwprintf(text, 128, L"\u2B07  \u6B63\u5728\u4E0B\u8F7D v%s \u66F4\u65B0...",
+                   s_updateResult.latestVersion);
+        SetWindowTextW(s_hwndUpdateLabel, text);
+    }
+}
+
 static LRESULT CALLBACK main_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
     switch (msg) {
     case WM_CREATE:
@@ -272,6 +370,23 @@ static LRESULT CALLBACK main_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             terminal_mgr_new_tab();
         theme_apply_to_window(hwnd, g_app.isDarkMode);
         theme_enable_mica(hwnd, true);
+        /* Auto-check for updates in background */
+        { HWND h = hwnd;
+          HANDLE hThread = CreateThread(NULL, 0, update_check_thread, (LPVOID)h, 0, NULL);
+          if (hThread) CloseHandle(hThread); }
+        return 0;
+
+    case WM_ACODE_UPDATE_READY:
+        if (s_updateResult.hasUpdate) {
+            s_updateAvailable = true;
+            show_update_toast(hwnd, false);  /* downloading phase */
+            main_window_layout(hwnd);
+        }
+        return 0;
+
+    case WM_ACODE_UPDATE_DOWNLOADED:
+        show_update_toast(hwnd, true);  /* ready to install */
+        main_window_layout(hwnd);
         return 0;
 
     case WM_SIZE:
@@ -357,6 +472,38 @@ static LRESULT CALLBACK main_wnd_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM
             return 0;
         case WM_ACODE_SPLIT_H:
             terminal_mgr_split_horizontal();
+            return 0;
+        case IDC_UPDATE_BTN:
+            if (s_updateResult.downloaded && s_updateResult.localPath[0]) {
+                /* Write restart flag so next launch opens version page */
+                wchar_t flagPath[MAX_PATH];
+                GetTempPathW(MAX_PATH, flagPath);
+                wcscat(flagPath, L"acode_updated.flag");
+                HANDLE hFlag = CreateFileW(flagPath, GENERIC_WRITE, 0, NULL,
+                    CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+                if (hFlag != INVALID_HANDLE_VALUE) {
+                    /* Write new version string to flag file */
+                    DWORD bw;
+                    char ver[64];
+                    WideCharToMultiByte(CP_UTF8, 0, s_updateResult.latestVersion, -1, ver, 64, NULL, NULL);
+                    WriteFile(hFlag, ver, (DWORD)strlen(ver), &bw, NULL);
+                    CloseHandle(hFlag);
+                }
+                /* Launch installer silently and exit */
+                ShellExecuteW(NULL, L"open", s_updateResult.localPath,
+                    L"/S", NULL, SW_HIDE);
+                g_app.lastTerminalCount = terminal_mgr_count();
+                app_shutdown();
+                PostQuitMessage(0);
+            }
+            return 0;
+        case IDC_UPDATE_CLOSE:
+            s_updateAvailable = false;
+            if (s_hwndUpdateBtn)   { DestroyWindow(s_hwndUpdateBtn);   s_hwndUpdateBtn = NULL; }
+            if (s_hwndUpdateClose) { DestroyWindow(s_hwndUpdateClose); s_hwndUpdateClose = NULL; }
+            if (s_hwndUpdateToast) { DestroyWindow(s_hwndUpdateToast); s_hwndUpdateToast = NULL; }
+            s_hwndUpdateLabel = NULL;  /* child of toast, destroyed with parent */
+            main_window_layout(hwnd);
             return 0;
         }
         break;

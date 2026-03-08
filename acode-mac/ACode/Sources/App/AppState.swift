@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     // MARK: - Services
     let database: DatabaseManager
     let providerService: ProviderService
+    let updateChecker = UpdateChecker()
 
     // MARK: - Provider State
     @Published var providers: [Provider] = []
@@ -25,9 +26,16 @@ final class AppState: ObservableObject {
     // MARK: - Usage Tracking
     @Published var sessionUsage = UsageSummary()
 
+    private var updateCheckerCancellable: AnyCancellable?
+
     init() {
         self.database = DatabaseManager()
         self.providerService = ProviderService(database: database)
+
+        // 转发嵌套 ObservableObject 的变化通知，使 SwiftUI 视图能响应 updateChecker 属性变化
+        updateCheckerCancellable = updateChecker.objectWillChange
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in self?.objectWillChange.send() }
 
         // 初始加载
         loadProviders()
@@ -53,7 +61,7 @@ final class AppState: ObservableObject {
         do {
             let provider = try providerService.switchProvider(id: id)
             loadProviders()
-            statusMessage = "已切换到 \(provider.name)"
+            statusMessage = "已切换到 \(provider.name)，新终端将使用新配置"
             NotificationCenter.default.post(name: .providerSwitched, object: provider)
         } catch {
             statusMessage = "切换供应商失败: \(error.localizedDescription)"
@@ -78,6 +86,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     case claude = "Claude"
     case openai = "OpenAI"
     case gemini = "Gemini"
+    case mcp = "MCP 管理"
+    case skills = "Skills 管理"
     case usage = "用量"
     case about = "关于"
 
@@ -89,6 +99,8 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         case .claude: return "bubble.left.fill"
         case .openai: return "hexagon"
         case .gemini: return "sparkle"
+        case .mcp: return "server.rack"
+        case .skills: return "star.circle"
         case .usage: return "chart.bar"
         case .about: return "info.circle"
         }
@@ -98,6 +110,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "基础"
         case .claude, .openai, .gemini: return "服务商"
+        case .mcp, .skills: return "工具"
         case .usage: return "高级"
         case .about: return "其他"
         }

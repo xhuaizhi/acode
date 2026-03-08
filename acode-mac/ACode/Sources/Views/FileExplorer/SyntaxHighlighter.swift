@@ -16,27 +16,27 @@ class SyntaxHighlighter {
 
         static var dark: Theme {
             Theme(
-                keyword: NSColor(red: 0.78, green: 0.46, blue: 0.82, alpha: 1),    // 紫色
-                string: NSColor(red: 0.87, green: 0.54, blue: 0.36, alpha: 1),     // 橙色
-                number: NSColor(red: 0.82, green: 0.75, blue: 0.50, alpha: 1),     // 黄色
-                comment: NSColor(red: 0.45, green: 0.50, blue: 0.55, alpha: 1),    // 灰绿
-                type: NSColor(red: 0.31, green: 0.76, blue: 0.77, alpha: 1),       // 青色
-                function: NSColor(red: 0.40, green: 0.72, blue: 0.93, alpha: 1),   // 蓝色
-                property: NSColor(red: 0.60, green: 0.80, blue: 0.60, alpha: 1),   // 绿色
-                plain: NSColor(red: 0.84, green: 0.85, blue: 0.87, alpha: 1),      // 浅灰
-                background: NSColor(red: 0.12, green: 0.12, blue: 0.14, alpha: 1)  // 深色背景
+                keyword: NSColor(red: 0.337, green: 0.612, blue: 0.839, alpha: 1),  // #569CD6 钢蓝
+                string: NSColor(red: 0.808, green: 0.569, blue: 0.471, alpha: 1),   // #CE9178 暖棕
+                number: NSColor(red: 0.710, green: 0.808, blue: 0.659, alpha: 1),   // #B5CEA8 浅绿
+                comment: NSColor(red: 0.416, green: 0.600, blue: 0.333, alpha: 1),  // #6A9955 绿色
+                type: NSColor(red: 0.306, green: 0.788, blue: 0.690, alpha: 1),     // #4EC9B0 青绿
+                function: NSColor(red: 0.863, green: 0.863, blue: 0.667, alpha: 1), // #DCDCAA 淡黄
+                property: NSColor(red: 0.612, green: 0.863, blue: 0.996, alpha: 1), // #9CDCFE 浅蓝
+                plain: NSColor(red: 0.831, green: 0.831, blue: 0.831, alpha: 1),    // #D4D4D4 浅灰
+                background: NSColor(red: 0.118, green: 0.118, blue: 0.118, alpha: 1) // #1E1E1E 深色背景
             )
         }
 
         static var light: Theme {
             Theme(
-                keyword: NSColor(red: 0.60, green: 0.20, blue: 0.65, alpha: 1),
-                string: NSColor(red: 0.76, green: 0.24, blue: 0.16, alpha: 1),
-                number: NSColor(red: 0.10, green: 0.46, blue: 0.82, alpha: 1),
-                comment: NSColor(red: 0.40, green: 0.46, blue: 0.50, alpha: 1),
-                type: NSColor(red: 0.04, green: 0.50, blue: 0.55, alpha: 1),
-                function: NSColor(red: 0.15, green: 0.35, blue: 0.65, alpha: 1),
-                property: NSColor(red: 0.20, green: 0.50, blue: 0.20, alpha: 1),
+                keyword: NSColor(red: 0.0, green: 0.0, blue: 1.0, alpha: 1),        // #0000FF 蓝
+                string: NSColor(red: 0.639, green: 0.082, blue: 0.082, alpha: 1),   // #A31515 暗红
+                number: NSColor(red: 0.035, green: 0.525, blue: 0.345, alpha: 1),   // #098658 暗青
+                comment: NSColor(red: 0.0, green: 0.502, blue: 0.0, alpha: 1),      // #008000 绿
+                type: NSColor(red: 0.149, green: 0.498, blue: 0.600, alpha: 1),     // #267F99 青
+                function: NSColor(red: 0.475, green: 0.369, blue: 0.149, alpha: 1), // #795E26 棕
+                property: NSColor(red: 0.0, green: 0.063, blue: 0.502, alpha: 1),   // #001080 深蓝
                 plain: NSColor.textColor,
                 background: NSColor.textBackgroundColor
             )
@@ -180,10 +180,10 @@ class SyntaxHighlighter {
         }
     }
 
-    static func highlight(_ text: String, language: String, theme: Theme) -> NSAttributedString {
+    static func highlight(_ text: String, language: String, theme: Theme, fontSize: CGFloat = 13) -> NSAttributedString {
         let langDef = languageDefinition(for: language)
         let attributed = NSMutableAttributedString(string: text, attributes: [
-            .font: NSFont.monospacedSystemFont(ofSize: 13, weight: .regular),
+            .font: NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular),
             .foregroundColor: theme.plain
         ])
 
