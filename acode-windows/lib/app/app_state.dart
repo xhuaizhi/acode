@@ -49,6 +49,18 @@ class AppState extends ChangeNotifier {
   // 用量统计
   UsageSummary sessionUsage = UsageSummary();
 
+  AppState() {
+    // 监听 UpdateChecker 变化，转发通知
+    updateChecker.addListener(notifyListeners);
+  }
+
+  @override
+  void dispose() {
+    updateChecker.removeListener(notifyListeners);
+    updateChecker.dispose();
+    super.dispose();
+  }
+
   /// 初始化
   Future<void> initialize() async {
     dbManager = DatabaseManager.instance;

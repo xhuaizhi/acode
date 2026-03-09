@@ -8,7 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 /// 更新检查器 — 检查/下载/安装更新
 class UpdateChecker extends ChangeNotifier {
-  static const String _updateUrl = 'https://acode.anna.tf/api/updates/windows';
+  static const String _apiBase = 'https://acode.anna.tf';
   static const String _currentVersion = '1.0.0';
 
   bool isChecking = false;
@@ -30,16 +30,16 @@ class UpdateChecker extends ChangeNotifier {
 
     try {
       final response = await http.get(
-        Uri.parse('$_updateUrl?current=$_currentVersion&platform=windows'),
+        Uri.parse('$_apiBase/api/v1/update/check?version=$_currentVersion&platform=windows'),
       ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body) as Map<String, dynamic>;
-        final latest = data['version'] as String?;
-        if (latest != null && _isNewerVersion(latest, _currentVersion)) {
-          latestVersion = latest;
+        final hasUpdateFlag = data['has_update'] as bool? ?? false;
+        if (hasUpdateFlag) {
+          latestVersion = data['version'] as String?;
           downloadUrl = data['download_url'] as String?;
-          releaseNotes = data['release_notes'] as String?;
+          releaseNotes = data['notes'] as String?;
           _expectedSha256 = data['sha256'] as String?;
           hasUpdate = true;
         }

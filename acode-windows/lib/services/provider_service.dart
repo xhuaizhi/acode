@@ -1,5 +1,6 @@
 import '../database/database_manager.dart';
 import '../models/provider.dart';
+import '../utils/provider_icon_inference.dart';
 import 'provider_config_writer.dart';
 import 'provider_env_generator.dart';
 
@@ -36,15 +37,31 @@ class ProviderService {
 
   /// 创建 Provider
   Future<Provider> createProvider(ProviderFormData data) async {
+    // 自动推断图标
+    String? icon = data.icon;
+    String? iconColor = data.iconColor;
+    if (icon == null || icon.isEmpty) {
+      final inferred = ProviderIconInference.infer(data.name);
+      if (inferred != null) {
+        icon = inferred.name;
+        iconColor = inferred.color;
+      }
+    }
+
+    // 如果 model 为空，使用默认模型
+    final model = data.model.isEmpty
+        ? DefaultModels.defaultModel(data.tool)
+        : data.model;
+
     final provider = Provider(
       name: data.name,
       tool: data.tool,
       apiKey: data.apiKey,
       apiBase: data.apiBase,
-      model: data.model,
+      model: model,
       extraEnv: data.mergedExtraEnv,
-      icon: data.icon,
-      iconColor: data.iconColor,
+      icon: icon,
+      iconColor: iconColor,
       notes: data.notes,
       category: data.category,
       presetId: data.presetId,
@@ -74,6 +91,7 @@ class ProviderService {
       icon: data.icon,
       iconColor: data.iconColor,
       notes: data.notes,
+      updatedAt: DateTime.now().millisecondsSinceEpoch ~/ 1000,
     );
     await _db.updateProvider(updated);
 
@@ -87,7 +105,20 @@ class ProviderService {
 
   /// 删除 Provider
   Future<void> deleteProvider(int id) async {
+    // 获取要删除的 Provider 的 tool 信息
+    final all = await _db.getAllProviders();
+    final target = all.where((p) => p.id == id).toList();
+    final tool = target.isNotEmpty ? target.first.tool : null;
+
     await _db.deleteProvider(id);
+
+    // 如果删除后有新的自动激活 Provider，写入 Live 配置
+    if (tool != null) {
+      final newActive = await _db.getActiveProvider(tool);
+      if (newActive != null) {
+        await _writeConfig(newActive);
+      }
+    }
   }
 
   /// 切换激活 Provider

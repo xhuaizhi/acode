@@ -86,115 +86,79 @@ class SkillsService {
     final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
     if (home.isEmpty) return;
 
-    final enabledSkills = skills.where((s) => s.enabledApps.contains('claude'));
-    final content = enabledSkills.map((s) => '# ${s.name}\n${s.content}').join('\n\n');
-
-    try {
-      final file = File(p.join(home, '.claude', 'CLAUDE.md'));
-      final dir = file.parent;
-      if (!dir.existsSync()) dir.createSync(recursive: true);
-
-      // 读取现有内容，保留用户手动添加的部分
-      String existingContent = '';
-      if (file.existsSync()) {
-        existingContent = file.readAsStringSync();
-      }
-
-      // 标记 ACode 管理的区域
-      const startMarker = '<!-- ACode Skills Start -->';
-      const endMarker = '<!-- ACode Skills End -->';
-
-      final startIdx = existingContent.indexOf(startMarker);
-      final endIdx = existingContent.indexOf(endMarker);
-
-      String newContent;
-      if (startIdx >= 0 && endIdx >= 0) {
-        newContent = '${existingContent.substring(0, startIdx)}$startMarker\n$content\n$endMarker${existingContent.substring(endIdx + endMarker.length)}';
-      } else {
-        if (existingContent.isNotEmpty) {
-          newContent = '$existingContent\n\n$startMarker\n$content\n$endMarker';
-        } else {
-          newContent = '$startMarker\n$content\n$endMarker';
-        }
-      }
-
-      file.writeAsStringSync(newContent);
-    } catch (_) {}
+    _syncInstructionFile(
+      p.join(home, '.claude', 'CLAUDE.md'),
+      skills.where((s) => s.enabledApps.contains('claude')).toList(),
+    );
   }
 
   void _syncToCodex(List<Skill> skills) {
     final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
     if (home.isEmpty) return;
 
-    final enabledSkills = skills.where((s) => s.enabledApps.contains('codex'));
-    final content = enabledSkills.map((s) => '# ${s.name}\n${s.content}').join('\n\n');
-
-    try {
-      final file = File(p.join(home, '.codex', 'instructions.md'));
-      final dir = file.parent;
-      if (!dir.existsSync()) dir.createSync(recursive: true);
-
-      String existingContent = '';
-      if (file.existsSync()) {
-        existingContent = file.readAsStringSync();
-      }
-
-      const startMarker = '<!-- ACode Skills Start -->';
-      const endMarker = '<!-- ACode Skills End -->';
-
-      final startIdx = existingContent.indexOf(startMarker);
-      final endIdx = existingContent.indexOf(endMarker);
-
-      String newContent;
-      if (startIdx >= 0 && endIdx >= 0) {
-        newContent = '${existingContent.substring(0, startIdx)}$startMarker\n$content\n$endMarker${existingContent.substring(endIdx + endMarker.length)}';
-      } else {
-        if (existingContent.isNotEmpty) {
-          newContent = '$existingContent\n\n$startMarker\n$content\n$endMarker';
-        } else {
-          newContent = '$startMarker\n$content\n$endMarker';
-        }
-      }
-
-      file.writeAsStringSync(newContent);
-    } catch (_) {}
+    _syncInstructionFile(
+      p.join(home, '.codex', 'instructions.md'),
+      skills.where((s) => s.enabledApps.contains('codex')).toList(),
+    );
   }
 
   void _syncToGemini(List<Skill> skills) {
     final home = Platform.environment['USERPROFILE'] ?? Platform.environment['HOME'] ?? '';
     if (home.isEmpty) return;
 
-    final enabledSkills = skills.where((s) => s.enabledApps.contains('gemini'));
-    final content = enabledSkills.map((s) => '# ${s.name}\n${s.content}').join('\n\n');
+    _syncInstructionFile(
+      p.join(home, '.gemini', 'GEMINI.md'),
+      skills.where((s) => s.enabledApps.contains('gemini')).toList(),
+    );
+  }
+
+  /// 在指令文件中替换 ACode Skills 区块（与 Mac 版对齐）
+  void _syncInstructionFile(String filePath, List<Skill> skills) {
+    const marker = '<!-- ACode Skills -->';
+    const endMarker = '<!-- /ACode Skills -->';
 
     try {
-      final file = File(p.join(home, '.gemini', 'GEMINI.md'));
+      final file = File(filePath);
       final dir = file.parent;
       if (!dir.existsSync()) dir.createSync(recursive: true);
 
-      String existingContent = '';
-      if (file.existsSync()) {
-        existingContent = file.readAsStringSync();
+      var existing = file.existsSync() ? file.readAsStringSync() : '';
+
+      // 移除旧的 ACode Skills 区块（兼容旧格式 Start/End）
+      existing = _removeSkillBlock(existing, marker, endMarker);
+      existing = _removeSkillBlock(existing, '<!-- ACode Skills Start -->', '<!-- ACode Skills End -->');
+      existing = existing.trim();
+
+      // 如果没有技能需要写入，只保留清理后的内容
+      if (skills.isEmpty) {
+        if (existing.isNotEmpty) file.writeAsStringSync(existing);
+        return;
       }
 
-      const startMarker = '<!-- ACode Skills Start -->';
-      const endMarker = '<!-- ACode Skills End -->';
-
-      final startIdx = existingContent.indexOf(startMarker);
-      final endIdx = existingContent.indexOf(endMarker);
-
-      String newContent;
-      if (startIdx >= 0 && endIdx >= 0) {
-        newContent = '${existingContent.substring(0, startIdx)}$startMarker\n$content\n$endMarker${existingContent.substring(endIdx + endMarker.length)}';
-      } else {
-        if (existingContent.isNotEmpty) {
-          newContent = '$existingContent\n\n$startMarker\n$content\n$endMarker';
-        } else {
-          newContent = '$startMarker\n$content\n$endMarker';
+      // 构建新的技能区块
+      final buffer = StringBuffer('\n\n$marker\n');
+      for (final skill in skills) {
+        buffer.writeln('## ${skill.name}');
+        if (skill.description.isNotEmpty) {
+          buffer.writeln('> ${skill.description}');
         }
+        buffer.writeln();
+        buffer.writeln(skill.content);
+        buffer.writeln();
       }
+      buffer.write(endMarker);
 
-      file.writeAsStringSync(newContent);
+      existing += buffer.toString();
+      file.writeAsStringSync(existing);
     } catch (_) {}
+  }
+
+  String _removeSkillBlock(String content, String startMarker, String endMarker) {
+    final startIdx = content.indexOf(startMarker);
+    final endIdx = content.indexOf(endMarker);
+    if (startIdx >= 0 && endIdx >= 0) {
+      return content.substring(0, startIdx) + content.substring(endIdx + endMarker.length);
+    }
+    return content;
   }
 }

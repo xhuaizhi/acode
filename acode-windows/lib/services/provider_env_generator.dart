@@ -8,7 +8,9 @@ class ProviderEnvGenerator {
 
     switch (provider.tool) {
       case 'claude_code':
-        env['ANTHROPIC_API_KEY'] = provider.apiKey;
+        if (provider.apiKey.isNotEmpty) {
+          env['ANTHROPIC_API_KEY'] = provider.apiKey;
+        }
         if (provider.apiBase.isNotEmpty) {
           env['ANTHROPIC_BASE_URL'] = provider.apiBase;
         }
@@ -18,7 +20,9 @@ class ProviderEnvGenerator {
         break;
 
       case 'openai':
-        env['OPENAI_API_KEY'] = provider.apiKey;
+        if (provider.apiKey.isNotEmpty) {
+          env['OPENAI_API_KEY'] = provider.apiKey;
+        }
         if (provider.apiBase.isNotEmpty) {
           env['OPENAI_BASE_URL'] = provider.apiBase;
         }
@@ -28,9 +32,16 @@ class ProviderEnvGenerator {
         break;
 
       case 'gemini':
-        env['GEMINI_API_KEY'] = provider.apiKey;
+        if (provider.apiKey.isNotEmpty) {
+          env['GOOGLE_API_KEY'] = provider.apiKey;
+          env['GEMINI_API_KEY'] = provider.apiKey;
+        }
         if (provider.apiBase.isNotEmpty) {
+          env['GOOGLE_GEMINI_BASE_URL'] = provider.apiBase;
           env['GEMINI_BASE_URL'] = provider.apiBase;
+        }
+        if (provider.model.isNotEmpty) {
+          env['GEMINI_MODEL'] = provider.model;
         }
         break;
     }

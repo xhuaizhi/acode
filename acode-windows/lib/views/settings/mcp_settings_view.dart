@@ -42,7 +42,7 @@ class _MCPSettingsViewState extends State<MCPSettingsView> {
             ),
             const Spacer(),
             Text(
-              '所有更改同步写入 Claude / Codex 配置',
+              '同步写入 Claude / Codex / Gemini 配置',
               style: TextStyle(fontSize: 11, color: Colors.grey[500]),
             ),
           ],
@@ -72,6 +72,10 @@ class _MCPSettingsViewState extends State<MCPSettingsView> {
                 server: server,
                 onEdit: () => _showEditDialog(server),
                 onDelete: () => _showDeleteConfirm(server),
+                onToggleApp: (app, enabled) {
+                  MCPService.shared.toggleApp(app, server.id, enabled);
+                  _refresh();
+                },
               ),
             );
           }),
@@ -115,7 +119,7 @@ class _MCPSettingsViewState extends State<MCPSettingsView> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('确认删除'),
-        content: Text('确定要删除 MCP 服务器 "${server.id}" 吗？\n将同时从 Claude 和 Codex 配置中移除。'),
+        content: Text('确定要删除 MCP 服务器 "${server.id}" 吗？\n将同时从 Claude、Codex、Gemini 配置中移除。'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
           TextButton(
@@ -144,11 +148,13 @@ class _MCPServerRow extends StatelessWidget {
   final MCPServer server;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
+  final void Function(String app, bool enabled) onToggleApp;
 
   const _MCPServerRow({
     required this.server,
     required this.onEdit,
     required this.onDelete,
+    required this.onToggleApp,
   });
 
   @override
@@ -208,22 +214,36 @@ class _MCPServerRow extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (server.sources.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Wrap(
-                    spacing: 4,
-                    children: server.sources.map((source) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  children: ['claude', 'codex', 'gemini'].map((app) {
+                    final isEnabled = server.sources.contains(app);
+                    return GestureDetector(
+                      onTap: () => onToggleApp(app, !isEnabled),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                         decoration: BoxDecoration(
-                          color: isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE8E8E8),
-                          borderRadius: BorderRadius.circular(2),
+                          color: isEnabled
+                              ? _appColor(app).withValues(alpha: 0.15)
+                              : (isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE8E8E8)),
+                          borderRadius: BorderRadius.circular(3),
+                          border: isEnabled
+                              ? Border.all(color: _appColor(app).withValues(alpha: 0.4), width: 0.5)
+                              : null,
                         ),
-                        child: Text(source, style: TextStyle(fontSize: 9, color: Colors.grey[500])),
-                      );
-                    }).toList(),
-                  ),
-                ],
+                        child: Text(
+                          app,
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: isEnabled ? FontWeight.w600 : FontWeight.normal,
+                            color: isEnabled ? _appColor(app) : Colors.grey[500],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
               ],
             ),
           ),
@@ -255,6 +275,19 @@ class _MCPServerRow extends StatelessWidget {
         return Colors.green;
       case 'sse':
         return Colors.orange;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  Color _appColor(String app) {
+    switch (app) {
+      case 'claude':
+        return const Color(0xFFD4915D);
+      case 'codex':
+        return const Color(0xFF00A67E);
+      case 'gemini':
+        return const Color(0xFF4285F4);
       default:
         return Colors.grey;
     }

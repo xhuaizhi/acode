@@ -5,8 +5,29 @@ import '../../app/app_state.dart';
 import '../../models/usage_tracker.dart';
 
 /// 用量统计设置页
-class UsageSettingsView extends StatelessWidget {
+class UsageSettingsView extends StatefulWidget {
   const UsageSettingsView({super.key});
+
+  @override
+  State<UsageSettingsView> createState() => _UsageSettingsViewState();
+}
+
+class _UsageSettingsViewState extends State<UsageSettingsView> {
+  List<ModelPricing> _pricingList = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPricing();
+  }
+
+  Future<void> _loadPricing() async {
+    try {
+      final appState = context.read<AppState>();
+      final list = await appState.dbManager.getAllModelPricing();
+      if (mounted) setState(() => _pricingList = list);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,32 +76,34 @@ class UsageSettingsView extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
-          child: Column(
-            children: ModelPricing.defaults.map((p) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        p.model,
-                        style: const TextStyle(fontSize: 12, fontFamily: 'Consolas'),
+          child: _pricingList.isEmpty
+              ? Text('加载中...', style: TextStyle(fontSize: 12, color: Colors.grey[500]))
+              : Column(
+                  children: _pricingList.map((p) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              p.displayName,
+                              style: const TextStyle(fontSize: 12, fontFamily: 'Consolas'),
+                            ),
+                          ),
+                          Text(
+                            '输入 \$${p.inputCostPerMillion}/M',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            '输出 \$${p.outputCostPerMillion}/M',
+                            style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                          ),
+                        ],
                       ),
-                    ),
-                    Text(
-                      '输入 \$${p.inputPricePerMillion}/M',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      '输出 \$${p.outputPricePerMillion}/M',
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
-              );
-            }).toList(),
-          ),
         ),
       ],
     );

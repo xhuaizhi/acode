@@ -1,17 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../../app/app_state.dart';
+
 /// 关于页
-class AboutSettingsView extends StatelessWidget {
+class AboutSettingsView extends StatefulWidget {
   const AboutSettingsView({super.key});
 
+  @override
+  State<AboutSettingsView> createState() => _AboutSettingsViewState();
+}
+
+class _AboutSettingsViewState extends State<AboutSettingsView> {
   static const String _version = '1.0.0';
   static const String _build = '1';
   static const String _qqGroup = '1076321843';
 
   @override
+  void initState() {
+    super.initState();
+    // 进入关于页时自动检查更新
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final appState = context.read<AppState>();
+      appState.updateChecker.checkForUpdates();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final appState = context.watch<AppState>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
 
@@ -151,12 +170,106 @@ class AboutSettingsView extends StatelessWidget {
 
         const SizedBox(height: 24),
 
+        // 版本更新
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+          child: _buildUpdateSection(appState),
+        ),
+
+        const SizedBox(height: 24),
+
         // 版权
         Center(
           child: Text(
             '© 2025 ACode Project. All rights reserved.',
             style: TextStyle(fontSize: 11, color: Colors.grey[400]),
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildUpdateSection(AppState appState) {
+    final checker = appState.updateChecker;
+
+    if (checker.isChecking) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+          const SizedBox(width: 8),
+          Text('正在检查更新...', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+        ],
+      );
+    }
+
+    if (checker.hasUpdate && checker.latestVersion != null) {
+      return Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.arrow_downward, size: 16, color: Colors.green),
+              const SizedBox(width: 6),
+              Text(
+                '新版本 v${checker.latestVersion} 可用',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+          if (checker.releaseNotes != null && checker.releaseNotes!.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Text(
+              checker.releaseNotes!,
+              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (checker.isDownloading)
+                const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+              else if (checker.isDownloaded)
+                ElevatedButton.icon(
+                  onPressed: () => checker.installAndRestart(),
+                  icon: const Icon(Icons.install_desktop, size: 16),
+                  label: const Text('安装更新'),
+                )
+              else
+                ElevatedButton.icon(
+                  onPressed: () => checker.downloadUpdate(),
+                  icon: const Icon(Icons.download, size: 16),
+                  label: const Text('下载更新'),
+                ),
+              const SizedBox(width: 8),
+              OutlinedButton(
+                onPressed: () => checker.checkForUpdates(),
+                child: const Text('重新检查'),
+              ),
+            ],
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.check_circle, size: 16, color: Colors.green),
+            const SizedBox(width: 6),
+            Text('已是最新版本', style: TextStyle(fontSize: 13, color: Colors.grey[500])),
+          ],
+        ),
+        const SizedBox(height: 8),
+        OutlinedButton(
+          onPressed: () => checker.checkForUpdates(),
+          child: const Text('检查更新'),
         ),
       ],
     );

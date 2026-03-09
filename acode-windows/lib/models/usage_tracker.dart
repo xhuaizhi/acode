@@ -1,18 +1,31 @@
 /// Token 用量记录
 class UsageRecord {
+  final String id;
+  final String tool;          // claude_code / openai / gemini
+  final int providerId;
   final String model;
   final int inputTokens;
   final int outputTokens;
   final int cacheReadTokens;
+  final int cacheCreationTokens;
+  final double cost;          // 预估费用（美元）
   final DateTime timestamp;
 
   UsageRecord({
+    String? id,
+    this.tool = '',
+    this.providerId = 0,
     required this.model,
     this.inputTokens = 0,
     this.outputTokens = 0,
     this.cacheReadTokens = 0,
+    this.cacheCreationTokens = 0,
+    this.cost = 0.0,
     DateTime? timestamp,
-  }) : timestamp = timestamp ?? DateTime.now();
+  }) : id = id ?? DateTime.now().microsecondsSinceEpoch.toString(),
+       timestamp = timestamp ?? DateTime.now();
+
+  int get totalTokens => inputTokens + outputTokens;
 }
 
 /// 用量汇总
@@ -37,7 +50,10 @@ class UsageSummary {
     totalCacheReadTokens += record.cacheReadTokens;
     requestCount += 1;
 
-    if (inputPrice != null && outputPrice != null) {
+    // 优先使用 record.cost（已通过 CostCalculator 预计算）
+    if (record.cost > 0) {
+      totalCost += record.cost;
+    } else if (inputPrice != null && outputPrice != null) {
       totalCost += (record.inputTokens / 1000000.0) * inputPrice +
           (record.outputTokens / 1000000.0) * outputPrice;
     }
@@ -63,30 +79,96 @@ class UsageSummary {
 
   /// 格式化费用
   static String formatCost(double cost) {
-    if (cost < 0.01) return '\$0.00';
-    return '\$${cost.toStringAsFixed(2)}';
+    if (cost >= 1.0) {
+      return '\$${cost.toStringAsFixed(2)}';
+    } else if (cost >= 0.01) {
+      return '\$${cost.toStringAsFixed(3)}';
+    }
+    return '\$${cost.toStringAsFixed(4)}';
   }
 }
 
-/// 模型定价
+/// 模型定价数据
 class ModelPricing {
-  final String model;
-  final double inputPricePerMillion;
-  final double outputPricePerMillion;
+  final String modelId;
+  final String displayName;
+  final double inputCostPerMillion;
+  final double outputCostPerMillion;
+  final double cacheReadCostPerMillion;
+  final double cacheCreationCostPerMillion;
 
   const ModelPricing({
-    required this.model,
-    required this.inputPricePerMillion,
-    required this.outputPricePerMillion,
+    required this.modelId,
+    required this.displayName,
+    required this.inputCostPerMillion,
+    required this.outputCostPerMillion,
+    this.cacheReadCostPerMillion = 0,
+    this.cacheCreationCostPerMillion = 0,
   });
+}
 
-  static const List<ModelPricing> defaults = [
-    ModelPricing(model: 'claude-sonnet-4-20250514', inputPricePerMillion: 3.0, outputPricePerMillion: 15.0),
-    ModelPricing(model: 'claude-3-5-sonnet', inputPricePerMillion: 3.0, outputPricePerMillion: 15.0),
-    ModelPricing(model: 'claude-3-opus', inputPricePerMillion: 15.0, outputPricePerMillion: 75.0),
-    ModelPricing(model: 'claude-3-haiku', inputPricePerMillion: 0.25, outputPricePerMillion: 1.25),
-    ModelPricing(model: 'o3-mini', inputPricePerMillion: 1.1, outputPricePerMillion: 4.4),
-    ModelPricing(model: 'gpt-4o', inputPricePerMillion: 2.5, outputPricePerMillion: 10.0),
-    ModelPricing(model: 'gemini-2.5-pro', inputPricePerMillion: 1.25, outputPricePerMillion: 10.0),
-  ];
+/// 成本明细
+class CostBreakdown {
+  final double inputCost;
+  final double outputCost;
+  final double cacheReadCost;
+  final double cacheCreationCost;
+  final double totalCost;
+
+  const CostBreakdown({
+    required this.inputCost,
+    required this.outputCost,
+    required this.cacheReadCost,
+    required this.cacheCreationCost,
+    required this.totalCost,
+  });
+}
+
+/// Token 费用计算器
+class CostCalculator {
+  static const double _million = 1000000.0;
+
+  /// 根据模型定价计算单次请求费用
+  /// billable_input = max(input_tokens - cache_read_tokens, 0)
+  static CostBreakdown calculate({
+    required int inputTokens,
+    required int outputTokens,
+    int cacheReadTokens = 0,
+    int cacheCreationTokens = 0,
+    required ModelPricing pricing,
+    double costMultiplier = 1.0,
+  }) {
+    final billableInput = (inputTokens - cacheReadTokens).clamp(0, inputTokens);
+    final inputCost = billableInput * pricing.inputCostPerMillion / _million;
+    final outputCost = outputTokens * pricing.outputCostPerMillion / _million;
+    final cacheReadCost = cacheReadTokens * pricing.cacheReadCostPerMillion / _million;
+    final cacheCreationCost = cacheCreationTokens * pricing.cacheCreationCostPerMillion / _million;
+    final baseTotal = inputCost + outputCost + cacheReadCost + cacheCreationCost;
+    return CostBreakdown(
+      inputCost: inputCost,
+      outputCost: outputCost,
+      cacheReadCost: cacheReadCost,
+      cacheCreationCost: cacheCreationCost,
+      totalCost: baseTotal * costMultiplier,
+    );
+  }
+
+  /// 便捷方法：返回 double 总费用
+  static double calculateTotalCost({
+    required int inputTokens,
+    required int outputTokens,
+    int cacheReadTokens = 0,
+    int cacheCreationTokens = 0,
+    required ModelPricing pricing,
+    double costMultiplier = 1.0,
+  }) {
+    return calculate(
+      inputTokens: inputTokens,
+      outputTokens: outputTokens,
+      cacheReadTokens: cacheReadTokens,
+      cacheCreationTokens: cacheCreationTokens,
+      pricing: pricing,
+      costMultiplier: costMultiplier,
+    ).totalCost;
+  }
 }

@@ -10,12 +10,14 @@ class Provider {
   final String model;
   final String extraEnv; // JSON string
   final bool isActive;
+  final int sortOrder;
   final String? icon;
   final String? iconColor;
   final String? notes;
   final String? category;
   final String? presetId;
-  final DateTime createdAt;
+  final int createdAt;  // unix timestamp
+  final int updatedAt;  // unix timestamp
 
   Provider({
     this.id,
@@ -26,13 +28,16 @@ class Provider {
     this.model = '',
     this.extraEnv = '{}',
     this.isActive = false,
+    this.sortOrder = 0,
     this.icon,
     this.iconColor,
     this.notes,
     this.category,
     this.presetId,
-    DateTime? createdAt,
-  }) : createdAt = createdAt ?? DateTime.now();
+    int? createdAt,
+    int? updatedAt,
+  }) : createdAt = createdAt ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000),
+       updatedAt = updatedAt ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000);
 
   /// API Key 脱敏显示
   String get maskedApiKey {
@@ -76,12 +81,14 @@ class Provider {
       'model': model,
       'extra_env': extraEnv,
       'is_active': isActive ? 1 : 0,
+      'sort_order': sortOrder,
       'icon': icon,
       'icon_color': iconColor,
       'notes': notes,
       'category': category,
       'preset_id': presetId,
-      'created_at': createdAt.toIso8601String(),
+      'created_at': createdAt,
+      'updated_at': updatedAt,
     };
   }
 
@@ -95,14 +102,14 @@ class Provider {
       model: map['model'] as String? ?? '',
       extraEnv: map['extra_env'] as String? ?? '{}',
       isActive: (map['is_active'] as int?) == 1,
+      sortOrder: (map['sort_order'] as int?) ?? 0,
       icon: map['icon'] as String?,
       iconColor: map['icon_color'] as String?,
       notes: map['notes'] as String?,
       category: map['category'] as String?,
       presetId: map['preset_id'] as String?,
-      createdAt: map['created_at'] != null
-          ? DateTime.tryParse(map['created_at'] as String) ?? DateTime.now()
-          : DateTime.now(),
+      createdAt: (map['created_at'] as int?) ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000),
+      updatedAt: (map['updated_at'] as int?) ?? (DateTime.now().millisecondsSinceEpoch ~/ 1000),
     );
   }
 
@@ -115,11 +122,13 @@ class Provider {
     String? model,
     String? extraEnv,
     bool? isActive,
+    int? sortOrder,
     String? icon,
     String? iconColor,
     String? notes,
     String? category,
     String? presetId,
+    int? updatedAt,
   }) {
     return Provider(
       id: id ?? this.id,
@@ -130,12 +139,14 @@ class Provider {
       model: model ?? this.model,
       extraEnv: extraEnv ?? this.extraEnv,
       isActive: isActive ?? this.isActive,
+      sortOrder: sortOrder ?? this.sortOrder,
       icon: icon ?? this.icon,
       iconColor: iconColor ?? this.iconColor,
       notes: notes ?? this.notes,
       category: category ?? this.category,
       presetId: presetId ?? this.presetId,
       createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 }
@@ -219,53 +230,91 @@ class ProviderPreset {
   });
 
   static const List<ProviderPreset> presets = [
-    // Claude Code
     ProviderPreset(
-      id: 'claude_official',
-      name: 'Anthropic 官方',
+      id: 'claude-official',
+      name: 'Claude 官方',
       tool: 'claude_code',
       defaultModel: 'claude-sonnet-4-20250514',
+      icon: 'anthropic',
       iconColor: '#D4915D',
     ),
     ProviderPreset(
-      id: 'claude_openrouter',
-      name: 'OpenRouter (Claude)',
-      tool: 'claude_code',
-      apiBase: 'https://openrouter.ai/api/v1',
-      defaultModel: 'anthropic/claude-sonnet-4-20250514',
-      iconColor: '#6366F1',
-    ),
-    // OpenAI Codex
-    ProviderPreset(
-      id: 'openai_official',
+      id: 'openai-official',
       name: 'OpenAI 官方',
       tool: 'openai',
-      defaultModel: 'o3-mini',
+      defaultModel: 'o4-mini',
+      icon: 'openai',
       iconColor: '#00A67E',
     ),
     ProviderPreset(
-      id: 'openai_openrouter',
-      name: 'OpenRouter (OpenAI)',
-      tool: 'openai',
-      apiBase: 'https://openrouter.ai/api/v1',
-      defaultModel: 'openai/o3-mini',
-      iconColor: '#6366F1',
-    ),
-    // Gemini CLI
-    ProviderPreset(
-      id: 'gemini_official',
-      name: 'Google 官方',
+      id: 'gemini-official',
+      name: 'Gemini 官方',
       tool: 'gemini',
       defaultModel: 'gemini-2.5-pro',
+      icon: 'gemini',
       iconColor: '#4285F4',
     ),
     ProviderPreset(
-      id: 'gemini_openrouter',
-      name: 'OpenRouter (Gemini)',
-      tool: 'gemini',
+      id: 'deepseek',
+      name: 'DeepSeek',
+      tool: 'openai',
+      apiBase: 'https://api.deepseek.com',
+      defaultModel: 'deepseek-chat',
+      icon: 'deepseek',
+      iconColor: '#1E88E5',
+    ),
+    ProviderPreset(
+      id: 'openrouter',
+      name: 'OpenRouter',
+      tool: 'claude_code',
       apiBase: 'https://openrouter.ai/api/v1',
-      defaultModel: 'google/gemini-2.5-pro-preview',
+      defaultModel: 'anthropic/claude-sonnet-4',
+      icon: 'openrouter',
       iconColor: '#6366F1',
     ),
   ];
+}
+
+/// 默认模型配置
+class DefaultModels {
+  static const List<String> claude = [
+    'claude-sonnet-4-20250514',
+    'claude-opus-4-20250514',
+    'claude-3.5-haiku-20241022',
+    'claude-3-5-sonnet-20241022',
+  ];
+
+  static const List<String> openai = [
+    'o4-mini',
+    'gpt-4.1',
+    'gpt-4.1-mini',
+    'gpt-4.1-nano',
+    'o3',
+    'o3-mini',
+    'codex-mini-latest',
+  ];
+
+  static const List<String> gemini = [
+    'gemini-2.5-pro',
+    'gemini-2.5-flash',
+    'gemini-2.0-flash',
+  ];
+
+  static List<String> modelsForTool(String tool) {
+    switch (tool) {
+      case 'claude_code': return claude;
+      case 'openai': return openai;
+      case 'gemini': return gemini;
+      default: return [];
+    }
+  }
+
+  static String defaultModel(String tool) {
+    switch (tool) {
+      case 'claude_code': return 'claude-sonnet-4-20250514';
+      case 'openai': return 'o4-mini';
+      case 'gemini': return 'gemini-2.5-pro';
+      default: return '';
+    }
+  }
 }
