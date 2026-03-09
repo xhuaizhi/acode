@@ -76,6 +76,14 @@ final class TerminalViewCache {
         env["TERM"] = "xterm-256color"
         env["COLORTERM"] = "truecolor"
         env["LANG"] = env["LANG"] ?? "en_US.UTF-8"
+        env["TERM_PROGRAM"] = "ACode"
+        // 告知 TUI 应用当前终端背景色
+        // COLORFGBG: 标准约定，前景色;背景色 (ANSI color index)
+        // 15;0 = 白色前景, 黑色背景（暗色终端）
+        // 0;15 = 黑色前景, 白色背景（亮色终端）
+        env["COLORFGBG"] = isDark ? "15;0" : "0;15"
+        // TERM_BACKGROUND: 部分 CLI 工具使用此变量检测终端主题
+        env["TERM_BACKGROUND"] = isDark ? "dark" : "light"
 
         let shell = env["SHELL"] ?? "/bin/zsh"
         let envArray = env.map { "\($0.key)=\($0.value)" }
