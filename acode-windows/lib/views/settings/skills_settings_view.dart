@@ -28,7 +28,7 @@ class _SkillsSettingsViewState extends State<SkillsSettingsView> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,7 +51,10 @@ class _SkillsSettingsViewState extends State<SkillsSettingsView> {
         if (_skills.isEmpty)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20),
-            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+            ),
             child: Center(
               child: Column(
                 children: [
@@ -143,33 +146,26 @@ class _SkillCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  color: Colors.purple.withValues(alpha: 0.8),
-                  shape: BoxShape.circle,
-                ),
-                child: const Icon(Icons.star, size: 14, color: Colors.white),
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(skill.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                    Text(skill.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
                     if (skill.description.isNotEmpty)
-                      Text(skill.description, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                      Text(skill.description, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                   ],
                 ),
               ),
@@ -381,7 +377,7 @@ class _SkillFormDialogState extends State<_SkillFormDialog> {
                   TextField(
                     controller: _contentCtrl,
                     maxLines: 10,
-                    style: const TextStyle(fontSize: 13, fontFamily: 'Cascadia Code, Consolas'),
+                    style: const TextStyle(fontSize: 13),
                     decoration: const InputDecoration(
                       hintText: '在这里输入给 AI 的自定义指令...',
                       isDense: true,

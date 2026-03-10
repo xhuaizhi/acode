@@ -82,38 +82,96 @@ struct GeneralSettingsView: View {
     @AppStorage("editorFontSize") private var editorFontSize = 13.0
 
     var body: some View {
-        Form {
-            Section("外观") {
-                Picker("主题", selection: $theme) {
-                    Text("跟随系统").tag("system")
-                    Text("浅色").tag("light")
-                    Text("深色").tag("dark")
+        VStack(alignment: .leading, spacing: 24) {
+            // 外观
+            SettingsSection(title: "外观") {
+                SettingsRow(label: "主题") {
+                    Picker("", selection: $theme) {
+                        Text("跟随系统").tag("system")
+                        Text("浅色").tag("light")
+                        Text("深色").tag("dark")
+                    }
+                    .labelsHidden()
+                    .frame(width: 160)
                 }
 
-                HStack {
-                    Text("终端字体大小")
-                    Slider(value: $fontSize, in: 10...24, step: 1)
-                    Text("\(Int(fontSize))pt")
-                        .monospacedDigit()
-                        .frame(width: 36)
+                SettingsRow(label: "终端字体大小") {
+                    HStack(spacing: 10) {
+                        Slider(value: $fontSize, in: 10...24, step: 1)
+                            .frame(maxWidth: 200)
+                        Text("\(Int(fontSize))pt")
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .frame(width: 40, alignment: .trailing)
+                    }
                 }
 
-                HStack {
-                    Text("编辑器字体大小")
-                    Slider(value: $editorFontSize, in: 10...28, step: 1)
-                    Text("\(Int(editorFontSize))pt")
-                        .monospacedDigit()
-                        .frame(width: 36)
+                SettingsRow(label: "编辑器字体大小") {
+                    HStack(spacing: 10) {
+                        Slider(value: $editorFontSize, in: 10...28, step: 1)
+                            .frame(maxWidth: 200)
+                        Text("\(Int(editorFontSize))pt")
+                            .font(.system(size: 13, design: .monospaced))
+                            .foregroundColor(.secondary)
+                            .frame(width: 40, alignment: .trailing)
+                    }
                 }
             }
 
-            Section("终端") {
-                TextField("默认 Shell", text: $defaultShell)
+            // 终端
+            SettingsSection(title: "终端") {
+                SettingsRow(label: "默认 Shell") {
+                    TextField("", text: $defaultShell)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(maxWidth: 260)
+                }
             }
+
+            Spacer()
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .navigationTitle("常规")
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - 通用设置区块
+
+struct SettingsSection<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(title)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(.secondary)
+                .padding(.bottom, 10)
+
+            VStack(spacing: 0) {
+                content
+            }
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color(nsColor: .separatorColor).opacity(0.5), lineWidth: 0.5)
+            )
+        }
+    }
+}
+
+// MARK: - 通用设置行
+
+struct SettingsRow<Content: View>: View {
+    let label: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 14))
+            Spacer()
+            content
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
     }
 }
 
@@ -123,45 +181,47 @@ struct UsageSettingsView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        Form {
-            Section("本次会话") {
-                UsageRow(label: "输入 Tokens", value: UsageSummary.formatTokens(appState.sessionUsage.totalInputTokens))
-                UsageRow(label: "输出 Tokens", value: UsageSummary.formatTokens(appState.sessionUsage.totalOutputTokens))
-                UsageRow(label: "缓存读取", value: UsageSummary.formatTokens(appState.sessionUsage.totalCacheReadTokens))
-                UsageRow(label: "请求次数", value: "\(appState.sessionUsage.requestCount)")
+        VStack(alignment: .leading, spacing: 24) {
+            SettingsSection(title: "本次会话") {
+                SettingsRow(label: "输入 Tokens") {
+                    Text(UsageSummary.formatTokens(appState.sessionUsage.totalInputTokens))
+                        .font(.system(size: 14, design: .monospaced))
+                }
+                SettingsRow(label: "输出 Tokens") {
+                    Text(UsageSummary.formatTokens(appState.sessionUsage.totalOutputTokens))
+                        .font(.system(size: 14, design: .monospaced))
+                }
+                SettingsRow(label: "缓存读取") {
+                    Text(UsageSummary.formatTokens(appState.sessionUsage.totalCacheReadTokens))
+                        .font(.system(size: 14, design: .monospaced))
+                }
+                SettingsRow(label: "请求次数") {
+                    Text("\(appState.sessionUsage.requestCount)")
+                        .font(.system(size: 14, design: .monospaced))
+                }
 
                 Divider()
+                    .padding(.horizontal, 16)
 
-                UsageRow(label: "预估费用", value: UsageSummary.formatCost(appState.sessionUsage.totalCost), isHighlighted: true)
+                SettingsRow(label: "预估费用") {
+                    Text(UsageSummary.formatCost(appState.sessionUsage.totalCost))
+                        .font(.system(size: 14, weight: .semibold, design: .monospaced))
+                        .foregroundColor(.green)
+                }
             }
 
-            Section("说明") {
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary.opacity(0.6))
                 Text("用量数据基于终端内 AI CLI 工具的使用自动统计。费用根据模型定价页面中配置的单价预估计算。")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary.opacity(0.7))
             }
-        }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .navigationTitle("用量")
-    }
-}
 
-struct UsageRow: View {
-    let label: String
-    let value: String
-    var isHighlighted: Bool = false
-
-    var body: some View {
-        HStack {
-            Text(label)
-                .foregroundColor(.secondary)
             Spacer()
-            Text(value)
-                .font(.system(.body, design: .monospaced))
-                .foregroundColor(isHighlighted ? .green : .primary)
-                .fontWeight(isHighlighted ? .semibold : .regular)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../database/database_manager.dart';
 import '../models/provider.dart';
@@ -12,8 +13,8 @@ enum SettingsTab {
   claude('Claude Code', 'auto_awesome', '服务商'),
   openai('OpenAI Codex', 'psychology', '服务商'),
   gemini('Gemini CLI', 'diamond', '服务商'),
-  mcp('MCP', 'dns', '工具'),
-  skills('技能', 'star', '工具'),
+  mcp('MCP 管理', 'dns', '工具'),
+  skills('Skills 管理', 'star', '工具'),
   usage('用量', 'bar_chart', '高级'),
   about('关于', 'info', '其他');
 
@@ -40,6 +41,7 @@ class AppState extends ChangeNotifier {
   SettingsTab settingsTab = SettingsTab.general;
   int terminalCount = 1;
   String statusMessage = '';
+  ThemeMode themeMode = ThemeMode.dark;
 
   // 当前活跃文件信息
   String? activeFilePath;
@@ -67,6 +69,29 @@ class AppState extends ChangeNotifier {
     await dbManager.initialize();
     providerService = ProviderService(dbManager);
     await loadProviders();
+    await _loadTheme();
+  }
+
+  Future<void> _loadTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final theme = prefs.getString('theme') ?? 'dark';
+      themeMode = _parseThemeMode(theme);
+    } catch (_) {}
+  }
+
+  /// 设置主题模式
+  void setThemeMode(String theme) {
+    themeMode = _parseThemeMode(theme);
+    notifyListeners();
+  }
+
+  static ThemeMode _parseThemeMode(String theme) {
+    switch (theme) {
+      case 'light': return ThemeMode.light;
+      case 'dark': return ThemeMode.dark;
+      default: return ThemeMode.system;
+    }
   }
 
   /// 加载所有 Provider

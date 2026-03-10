@@ -21,7 +21,7 @@ class _StatusBarViewState extends State<StatusBarView> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF252526) : const Color(0xFFF3F3F3);
+    final bgColor = isDark ? const Color(0xFF232425) : const Color(0xFFF8F8F8);
     final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     // 监听状态消息变化
@@ -144,7 +144,7 @@ class _ProviderIndicator extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D2D2D) : const Color(0xFFEEEEEE),
+        color: isDark ? const Color(0xFF2A2B2D) : const Color(0xFFEEEEEE),
         borderRadius: BorderRadius.circular(4),
         boxShadow: [
           BoxShadow(
@@ -229,7 +229,7 @@ class _TokenUsageIndicatorState extends State<_TokenUsageIndicator> {
                           Text('预估费用', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
                           Text(
                             UsageSummary.formatCost(widget.usage.totalCost),
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, fontFamily: 'Consolas'),
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
@@ -249,7 +249,7 @@ class _TokenUsageIndicatorState extends State<_TokenUsageIndicator> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[500])),
-        Text(value, style: const TextStyle(fontSize: 12, fontFamily: 'Consolas')),
+        Text(value, style: const TextStyle(fontSize: 12)),
       ],
     );
   }
@@ -266,17 +266,17 @@ class _TokenUsageIndicatorState extends State<_TokenUsageIndicator> {
           children: [
             Text(
               '输入 ${UsageSummary.formatTokens(widget.usage.totalInputTokens)}',
-              style: TextStyle(fontSize: 10, fontFamily: 'Consolas', color: Colors.grey[500]),
+              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
             ),
             const SizedBox(width: 8),
             Text(
               '输出 ${UsageSummary.formatTokens(widget.usage.totalOutputTokens)}',
-              style: TextStyle(fontSize: 10, fontFamily: 'Consolas', color: Colors.grey[500]),
+              style: TextStyle(fontSize: 10, color: Colors.grey[500]),
             ),
             const SizedBox(width: 8),
             Text(
               UsageSummary.formatCost(widget.usage.totalCost),
-              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, fontFamily: 'Consolas', color: Colors.grey[500]),
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: Colors.grey[500]),
             ),
           ],
         ),

@@ -327,13 +327,14 @@ struct FileTextEditor: NSViewRepresentable {
     @Binding var isModified: Bool
     let fileURL: URL
     @AppStorage("editorFontSize") private var editorFontSize: Double = 13.0
+    @Environment(\.colorScheme) private var colorScheme
 
     private var language: String {
         SyntaxHighlighter.languageForExtension(fileURL.pathExtension)
     }
 
     private var isDark: Bool {
-        NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        colorScheme == .dark
     }
 
     func makeNSView(context: Context) -> NSScrollView {
@@ -357,7 +358,7 @@ struct FileTextEditor: NSViewRepresentable {
         )
 
         textView.gutterWidth = gutterWidth
-        textView.lineNumberColor = theme.comment
+        textView.lineNumberColor = NSColor(srgbRed: 0.52, green: 0.52, blue: 0.52, alpha: 1) // #858585 灰色
         textView.lineNumberFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
         textView.gutterBackgroundColor = theme.background
 
@@ -366,6 +367,9 @@ struct FileTextEditor: NSViewRepresentable {
         textView.allowsUndo = true
         textView.usesFindPanel = true
         textView.isRichText = true
+        if #available(macOS 10.14, *) {
+            textView.usesAdaptiveColorMappingForDarkAppearance = false
+        }
         textView.font = NSFont.monospacedSystemFont(ofSize: CGFloat(editorFontSize), weight: .regular)
         textView.textColor = theme.plain
         textView.backgroundColor = theme.background
@@ -380,6 +384,9 @@ struct FileTextEditor: NSViewRepresentable {
         textView.isAutomaticSpellingCorrectionEnabled = false
         textView.isAutomaticTextCompletionEnabled = false
         textView.isAutomaticLinkDetectionEnabled = false
+        textView.isAutomaticDataDetectionEnabled = false
+        textView.isContinuousSpellCheckingEnabled = false
+        textView.isGrammarCheckingEnabled = false
         textView.textContainerInset = NSSize(width: gutterWidth, height: 8)
         textView.autoresizingMask = [.width]
         textView.isHorizontallyResizable = false
@@ -399,6 +406,7 @@ struct FileTextEditor: NSViewRepresentable {
         let lang = language
         context.coordinator.language = lang
         context.coordinator.theme = theme
+        context.coordinator.isDarkMode = isDark
         context.coordinator.editorFontSize = CGFloat(editorFontSize)
         context.coordinator.scrollView = scrollView
         context.coordinator.needsInitialText = true
@@ -409,23 +417,39 @@ struct FileTextEditor: NSViewRepresentable {
     func updateNSView(_ nsView: NSScrollView, context: Context) {
         guard let textView = nsView.documentView as? SaveableTextView else { return }
 
+        let currentTheme = isDark ? SyntaxHighlighter.Theme.dark : SyntaxHighlighter.Theme.light
+
         /* Sync editor font size when setting changes */
         let newFontSize = CGFloat(editorFontSize)
         if context.coordinator.editorFontSize != newFontSize {
             context.coordinator.editorFontSize = newFontSize
             textView.font = NSFont.monospacedSystemFont(ofSize: newFontSize, weight: .regular)
+            context.coordinator.theme = currentTheme
+            context.coordinator.scheduleHighlight(for: textView.string)
+        }
+
+        /* Sync theme when colorScheme changes */
+        let themeChanged = (context.coordinator.isDarkMode != isDark)
+        if themeChanged {
+            context.coordinator.isDarkMode = isDark
+            context.coordinator.theme = currentTheme
+            textView.textColor = currentTheme.plain
+            textView.backgroundColor = currentTheme.background
+            textView.insertionPointColor = currentTheme.plain
+            textView.lineNumberColor = NSColor(srgbRed: 0.52, green: 0.52, blue: 0.52, alpha: 1)
+            textView.gutterBackgroundColor = currentTheme.background
+            nsView.backgroundColor = currentTheme.background
             context.coordinator.scheduleHighlight(for: textView.string)
         }
 
         if textView.string != text && !context.coordinator.isEditing {
-            let theme = isDark ? SyntaxHighlighter.Theme.dark : SyntaxHighlighter.Theme.light
             let lang = language
             context.coordinator.language = lang
-            context.coordinator.theme = theme
+            context.coordinator.theme = currentTheme
 
             let plainAttrs: [NSAttributedString.Key: Any] = [
                 .font: NSFont.monospacedSystemFont(ofSize: CGFloat(editorFontSize), weight: .regular),
-                .foregroundColor: theme.plain
+                .foregroundColor: currentTheme.plain
             ]
 
             context.coordinator.isUpdatingText = true
@@ -462,6 +486,7 @@ struct FileTextEditor: NSViewRepresentable {
         var isUpdatingText = false
         var language = "plain"
         var theme = SyntaxHighlighter.Theme.dark
+        var isDarkMode = true
         var editorFontSize: CGFloat = 13
         weak var scrollView: NSScrollView?
         var needsInitialText = false

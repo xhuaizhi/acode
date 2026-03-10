@@ -769,9 +769,16 @@ struct EmptyTerminalView: View {
 
 struct TerminalContainerView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.colorScheme) private var colorScheme
     @AppStorage("fontSize") private var fontSize: Double = 14.0
     let tab: TerminalTab
     var isFocused: Bool = false
+
+    private var terminalBackground: Color {
+        colorScheme == .dark
+            ? Color(nsColor: NSColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1.0))
+            : Color(nsColor: .textBackgroundColor)
+    }
 
     var body: some View {
         SwiftTerminalView(
@@ -780,6 +787,9 @@ struct TerminalContainerView: View {
             environment: currentProviderEnv,
             fontSize: CGFloat(fontSize)
         )
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(terminalBackground)
     }
 
     /// 合并所有激活 Provider 的环境变量

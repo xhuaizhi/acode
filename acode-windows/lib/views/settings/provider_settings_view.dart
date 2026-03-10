@@ -28,7 +28,7 @@ class _ProviderSettingsViewState extends State<ProviderSettingsView> {
   Widget build(BuildContext context) {
     final appState = p.Provider.of<AppState>(context, listen: true);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,8 +53,8 @@ class _ProviderSettingsViewState extends State<ProviderSettingsView> {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20),
             decoration: BoxDecoration(
-              color: cardColor,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
             ),
             child: Center(
               child: Column(
@@ -183,13 +183,13 @@ class _ProviderRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
       ),
       child: Row(
         children: [
@@ -215,7 +215,7 @@ class _ProviderRow extends StatelessWidget {
                     Text(
                       provider.name,
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: 14,
                         fontWeight: provider.isActive ? FontWeight.w600 : FontWeight.normal,
                       ),
                     ),
@@ -241,7 +241,7 @@ class _ProviderRow extends StatelessWidget {
                     if (provider.model.isNotEmpty) ...[
                       Text(
                         provider.model,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       ),
                       const SizedBox(width: 6),
                     ],
@@ -249,7 +249,6 @@ class _ProviderRow extends StatelessWidget {
                       provider.maskedApiKey,
                       style: TextStyle(
                         fontSize: 10,
-                        fontFamily: 'Consolas',
                         color: Colors.grey[400],
                       ),
                     ),

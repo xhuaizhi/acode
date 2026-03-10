@@ -15,20 +15,24 @@ struct ProviderSettingsView: View {
     }
 
     var body: some View {
-        Form {
+        VStack(alignment: .leading, spacing: 20) {
             // 供应商列表
-            Section {
+            SettingsSection(title: "已配置 (\(toolProviders.count))") {
                 if toolProviders.isEmpty {
                     HStack {
                         Spacer()
                         VStack(spacing: 6) {
+                            Image(systemName: "tray")
+                                .font(.system(size: 24))
+                                .foregroundColor(.secondary.opacity(0.4))
                             Text("暂无供应商")
+                                .font(.system(size: 13))
                                 .foregroundColor(.secondary)
                             Text("点击下方按钮添加")
-                                .font(.caption)
+                                .font(.system(size: 11))
                                 .foregroundColor(.secondary.opacity(0.7))
                         }
-                        .padding(.vertical, 20)
+                        .padding(.vertical, 24)
                         Spacer()
                     }
                 } else {
@@ -39,31 +43,39 @@ struct ProviderSettingsView: View {
                             onDelete: { appState.deleteProvider(id: provider.id) },
                             onSwitch: { appState.switchProvider(id: provider.id) }
                         )
+
+                        if provider.id != toolProviders.last?.id {
+                            Divider()
+                                .padding(.horizontal, 14)
+                        }
                     }
-                }
-            } header: {
-                HStack {
-                    Text("已配置 (\(toolProviders.count))")
-                    Spacer()
-                    Text("点击左侧圆点切换激活")
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
                 }
             }
 
-            // 操作
-            Section {
+            // 操作按钮
+            HStack(spacing: 10) {
                 Button(action: { showAddSheet = true }) {
-                    Label("手动添加供应商", systemImage: "plus")
+                    Label("手动添加", systemImage: "plus")
                 }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+
                 Button(action: { showPresetSheet = true }) {
-                    Label("从预设快速添加", systemImage: "list.bullet")
+                    Label("从预设添加", systemImage: "list.bullet")
                 }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+
+                Spacer()
+
+                Text("点击圆点切换激活")
+                    .font(.system(size: 11))
+                    .foregroundColor(.secondary.opacity(0.5))
             }
+
+            Spacer()
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
-        .navigationTitle(toolName)
+        .frame(maxWidth: .infinity, alignment: .leading)
         .sheet(isPresented: $showAddSheet) {
             ProviderFormSheet(tool: tool, toolName: toolName, provider: nil) {
                 appState.loadProviders()
@@ -96,40 +108,40 @@ struct ProviderRow: View {
     @State private var showDeleteConfirm = false
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 12) {
             // 激活状态指示（点击切换）
             Button(action: onSwitch) {
                 Image(systemName: provider.isActive ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 16))
-                    .foregroundColor(provider.isActive ? .green : .secondary.opacity(0.4))
+                    .font(.system(size: 18))
+                    .foregroundColor(provider.isActive ? .green : .secondary.opacity(0.3))
             }
             .buttonStyle(.plain)
             .help(provider.isActive ? "当前激活" : "切换到此供应商")
 
             // 信息
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
                     Text(provider.name)
-                        .font(.system(size: 13, weight: provider.isActive ? .semibold : .regular))
+                        .font(.system(size: 14, weight: provider.isActive ? .medium : .regular))
                     if provider.isActive {
                         Text("使用中")
-                            .font(.system(size: 9, weight: .medium))
+                            .font(.system(size: 10, weight: .medium))
                             .foregroundColor(.green)
-                            .padding(.horizontal, 4)
-                            .padding(.vertical, 1)
-                            .background(Color.green.opacity(0.12), in: RoundedRectangle(cornerRadius: 3))
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
+                            .background(Color.green.opacity(0.1), in: RoundedRectangle(cornerRadius: 4))
                     }
                 }
 
                 HStack(spacing: 6) {
                     if !provider.model.isEmpty {
                         Text(provider.model)
-                            .font(.system(size: 11))
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                     }
                     Text(provider.maskedApiKey)
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundColor(.secondary.opacity(0.6))
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.secondary.opacity(0.5))
                 }
             }
 
@@ -138,12 +150,12 @@ struct ProviderRow: View {
             // 编辑/删除
             Button("编辑", action: onEdit)
                 .buttonStyle(.bordered)
-                .controlSize(.mini)
+                .controlSize(.small)
 
             Button(action: { showDeleteConfirm = true }) {
                 Image(systemName: "trash")
-                    .font(.system(size: 11))
-                    .foregroundColor(.red.opacity(0.7))
+                    .font(.system(size: 12))
+                    .foregroundColor(.red.opacity(0.6))
             }
             .buttonStyle(.plain)
             .confirmationDialog("确认删除", isPresented: $showDeleteConfirm) {
@@ -153,7 +165,8 @@ struct ProviderRow: View {
                 Text("确定要删除供应商 \"\(provider.name)\" 吗？")
             }
         }
-        .padding(.vertical, 2)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 }
 

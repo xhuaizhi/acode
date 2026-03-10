@@ -12,11 +12,20 @@ acode-windows/*.pdb
 acode-mac/ACode/.build/
 acode-mac/ACode/DerivedData/
 acode-mac/ACode/build/
+acode-mac/ACode.app/
+acode-mac/*.dmg
+acode-mac/deps/
 
 # IDE
 .vscode/
 *.xcuserdata/
 *.xcworkspace/
+.idea/
+.windsurfrules
+
+# Flutter
+acode-windows/.dart_tool/
+acode-windows/.flutter-plugins-dependencies
 
 # Temp
 codechat/

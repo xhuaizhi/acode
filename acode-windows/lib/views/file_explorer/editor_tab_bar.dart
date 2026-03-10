@@ -23,7 +23,7 @@ class EditorTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF252526) : const Color(0xFFF3F3F3);
+    final bgColor = isDark ? const Color(0xFF232425) : const Color(0xFFF8F8F8);
     final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Container(

@@ -12,71 +12,62 @@ struct MCPSettingsView: View {
     private let service = MCPService.shared
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // 标题
+        VStack(alignment: .leading, spacing: 20) {
+            // 错误提示
+            if let error = errorMessage {
                 HStack {
-                    Text("MCP 服务器管理")
-                        .font(.title2.bold())
-                    Spacer()
-                    Text("\(servers.count) 个服务器")
-                        .font(.caption)
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundColor(.orange)
+                    Text(error)
+                        .font(.system(size: 13))
                         .foregroundColor(.secondary)
+                    Spacer()
+                    Button("关闭") { errorMessage = nil }
+                        .buttonStyle(.plain)
+                        .font(.system(size: 12))
                 }
-                .padding(.horizontal)
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color.orange.opacity(0.08))
+                )
+            }
 
-                // 错误提示
-                if let error = errorMessage {
-                    HStack {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundColor(.orange)
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                        Spacer()
-                        Button("关闭") { errorMessage = nil }
-                            .buttonStyle(.plain)
-                            .font(.caption)
-                    }
-                    .padding(10)
-                    .background(
-                        RoundedRectangle(cornerRadius: 6)
-                            .fill(Color.orange.opacity(0.1))
-                    )
-                    .padding(.horizontal)
-                }
-
-                // 服务器列表
+            // 服务器列表
+            SettingsSection(title: "已配置 (\(servers.count))") {
                 if servers.isEmpty {
                     emptyState
                 } else {
                     serverList
                 }
-
-                // 操作按钮
-                HStack(spacing: 12) {
-                    Button(action: { showAddSheet = true }) {
-                        Label("添加服务器", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Button(action: { showPresetSheet = true }) {
-                        Label("从预设添加", systemImage: "list.bullet")
-                    }
-                    .buttonStyle(.bordered)
-
-                    Spacer()
-
-                    Button(action: refresh) {
-                        Label("刷新", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(.horizontal)
             }
-            .padding(.vertical)
+
+            // 操作按钮
+            HStack(spacing: 10) {
+                Button(action: { showAddSheet = true }) {
+                    Label("添加服务器", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+
+                Button(action: { showPresetSheet = true }) {
+                    Label("从预设添加", systemImage: "list.bullet")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+
+                Spacer()
+
+                Button(action: refresh) {
+                    Label("刷新", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+            }
+
+            Spacer()
         }
-        .navigationTitle("MCP")
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear { refresh() }
         .sheet(isPresented: $showAddSheet) {
             MCPFormSheet(server: nil) {
@@ -100,35 +91,40 @@ struct MCPSettingsView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "server.rack")
-                .font(.system(size: 36))
-                .foregroundColor(.secondary.opacity(0.5))
+                .font(.system(size: 32))
+                .foregroundColor(.secondary.opacity(0.4))
 
             Text("还没有 MCP 服务器")
+                .font(.system(size: 14))
                 .foregroundColor(.secondary)
 
             Text("MCP 服务器为 AI 提供额外工具和数据源，如网页抓取、记忆存储等")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.8))
+                .font(.system(size: 12))
+                .foregroundColor(.secondary.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 30)
     }
 
     // MARK: - Server List
 
     private var serverList: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             ForEach(servers) { server in
                 MCPServerCard(
                     server: server,
                     onEdit: { editingServer = server },
                     onDelete: { deleteServer(id: server.id) }
                 )
+
+                if server.id != servers.last?.id {
+                    Divider()
+                        .padding(.horizontal, 16)
+                }
             }
         }
-        .padding(.horizontal)
     }
 
     // MARK: - Actions
@@ -158,34 +154,26 @@ struct MCPServerCard: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            // 图标
-            Circle()
-                .fill(transportColor)
-                .frame(width: 32, height: 32)
-                .overlay {
-                    Image(systemName: transportIcon)
-                        .font(.system(size: 14))
-                        .foregroundColor(.white)
-                }
-
             // 信息
-            VStack(alignment: .leading, spacing: 2) {
-                Text(server.id)
-                    .font(.system(size: 13, weight: .medium))
-
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) {
+                    Text(server.id)
+                        .font(.system(size: 14, weight: .medium))
+
                     Text(server.transport.uppercased())
                         .font(.system(size: 10, weight: .semibold))
                         .padding(.horizontal, 5)
-                        .padding(.vertical, 1)
+                        .padding(.vertical, 2)
                         .background(
-                            RoundedRectangle(cornerRadius: 3)
-                                .fill(transportColor.opacity(0.15))
+                            RoundedRectangle(cornerRadius: 4)
+                                .fill(transportColor.opacity(0.12))
                         )
                         .foregroundColor(transportColor)
+                }
 
+                HStack(spacing: 6) {
                     Text(server.summary)
-                        .font(.system(size: 11))
+                        .font(.system(size: 12))
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
@@ -194,12 +182,12 @@ struct MCPServerCard: View {
                     HStack(spacing: 4) {
                         ForEach(server.sources, id: \.self) { source in
                             Text(source)
-                                .font(.system(size: 9))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
+                                .font(.system(size: 10))
+                                .padding(.horizontal, 5)
+                                .padding(.vertical, 2)
                                 .background(
-                                    RoundedRectangle(cornerRadius: 2)
-                                        .fill(Color(nsColor: .separatorColor).opacity(0.3))
+                                    RoundedRectangle(cornerRadius: 3)
+                                        .fill(Color(nsColor: .separatorColor).opacity(0.25))
                                 )
                                 .foregroundColor(.secondary)
                         }
@@ -217,7 +205,8 @@ struct MCPServerCard: View {
 
                 Button(action: { showDeleteConfirm = true }) {
                     Image(systemName: "trash")
-                        .foregroundColor(.red)
+                        .font(.system(size: 12))
+                        .foregroundColor(.red.opacity(0.6))
                 }
                 .buttonStyle(.plain)
                 .confirmationDialog("确认删除", isPresented: $showDeleteConfirm) {
@@ -228,12 +217,8 @@ struct MCPServerCard: View {
                 }
             }
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: .controlBackgroundColor))
-                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     private var transportColor: Color {

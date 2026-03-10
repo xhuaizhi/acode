@@ -29,7 +29,7 @@ class _MCPSettingsViewState extends State<MCPSettingsView> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,7 +52,10 @@ class _MCPSettingsViewState extends State<MCPSettingsView> {
         if (_servers.isEmpty)
           Container(
             padding: const EdgeInsets.symmetric(vertical: 20),
-            decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+            ),
             child: Center(
               child: Column(
                 children: [
@@ -160,35 +163,23 @@ class _MCPServerRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+      ),
       child: Row(
         children: [
-          // 圆形彩色图标 — 对标 Mac 版 MCPServerCard
-          Container(
-            width: 32,
-            height: 32,
-            decoration: BoxDecoration(
-              color: _transportColor(server.transport),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _transportIcon(server.transport),
-              size: 14,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
-                    Text(server.id, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
+                    Text(server.id, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
                     const SizedBox(width: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
@@ -210,7 +201,7 @@ class _MCPServerRow extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   server.summary,
-                  style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                  style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -293,18 +284,6 @@ class _MCPServerRow extends StatelessWidget {
     }
   }
 
-  IconData _transportIcon(String transport) {
-    switch (transport) {
-      case 'stdio':
-        return Icons.terminal;
-      case 'http':
-        return Icons.public;
-      case 'sse':
-        return Icons.cell_tower;
-      default:
-        return Icons.dns;
-    }
-  }
 }
 
 /// MCP 表单对话框

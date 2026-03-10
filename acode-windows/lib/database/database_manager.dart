@@ -122,7 +122,8 @@ class DatabaseManager {
 
   /// 插入默认模型定价种子数据
   static Future<void> _seedModelPricing(Database db) async {
-    final count = Sqflite.firstIntValue(await db.rawQuery('SELECT COUNT(*) FROM model_pricing'));
+    final rows = await db.rawQuery('SELECT COUNT(*) FROM model_pricing');
+    final count = (rows.isNotEmpty ? rows.first.values.first as int? : null);
     if (count != null && count > 0) return;
 
     final seedData = [

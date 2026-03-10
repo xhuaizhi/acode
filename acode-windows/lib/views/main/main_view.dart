@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../app/app_state.dart';
 import '../../models/split_node.dart';
@@ -90,7 +91,7 @@ class _MainViewState extends State<MainView> {
     final appState = context.watch<AppState>();
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
+    final bgColor = isDark ? const Color(0xFF1C1E21) : Colors.white;
     final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return CallbackShortcuts(
@@ -234,48 +235,81 @@ class _MainViewState extends State<MainView> {
 
   Widget _buildToolbar(AppState appState, Color borderColor) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      height: 38,
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF252526) : const Color(0xFFF3F3F3),
-        border: Border(bottom: BorderSide(color: borderColor, width: 1)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 8),
-          _ToolbarButton(
-            icon: Icons.folder_open,
-            tooltip: '打开文件夹 (Ctrl+O)',
-            onPressed: _openFolderDialog,
-          ),
-          _ToolbarButton(
-            icon: Icons.vertical_split,
-            tooltip: _showSidebar ? '隐藏侧栏' : '显示侧栏',
-            onPressed: () => setState(() => _showSidebar = !_showSidebar),
-          ),
-          _ToolbarButton(
-            icon: Icons.terminal,
-            tooltip: _showTerminal ? '隐藏终端' : '显示终端',
-            onPressed: () => setState(() => _showTerminal = !_showTerminal),
-          ),
-          const Spacer(),
-          _ToolbarButton(
-            icon: Icons.splitscreen,
-            tooltip: '垂直分屏 (Ctrl+D)',
-            onPressed: _splitVertical,
-          ),
-          _ToolbarButton(
-            icon: Icons.view_column,
-            tooltip: '水平分屏 (Ctrl+Shift+D)',
-            onPressed: _splitHorizontal,
-          ),
-          _ToolbarButton(
-            icon: Icons.add,
-            tooltip: '新建终端 (Ctrl+T)',
-            onPressed: _addNewTab,
-          ),
-          const SizedBox(width: 8),
-        ],
+    return GestureDetector(
+      onPanStart: (_) => windowManager.startDragging(),
+      onDoubleTap: () async {
+        if (await windowManager.isMaximized()) {
+          windowManager.unmaximize();
+        } else {
+          windowManager.maximize();
+        }
+      },
+      child: Container(
+        height: 38,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1C1E21) : const Color(0xFFF8F8F8),
+          border: Border(bottom: BorderSide(color: borderColor, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            const SizedBox(width: 10),
+            // 应用图标 + 名称
+            Icon(Icons.code, size: 16, color: isDark ? Colors.white70 : Colors.black54),
+            const SizedBox(width: 6),
+            Text(
+              'ACode',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark ? Colors.white60 : Colors.black45,
+              ),
+            ),
+            const Spacer(),
+            // 功能按钮（与 Mac 端对齐：切换侧栏、切换终端、新建终端）
+            _ToolbarButton(
+              icon: Icons.vertical_split,
+              tooltip: _showSidebar ? '隐藏侧栏' : '显示侧栏',
+              onPressed: () => setState(() => _showSidebar = !_showSidebar),
+            ),
+            _ToolbarButton(
+              icon: Icons.terminal,
+              tooltip: _showTerminal ? '隐藏终端' : '显示终端',
+              onPressed: () => setState(() => _showTerminal = !_showTerminal),
+            ),
+            _ToolbarTextButton(
+              label: '新建终端',
+              tooltip: '新建终端 (Ctrl+T)',
+              onPressed: _addNewTab,
+            ),
+            const SizedBox(width: 8),
+            // 窗口控制按钮
+            _WindowButton(
+              icon: Icons.minimize,
+              tooltip: '最小化',
+              onPressed: () => windowManager.minimize(),
+              hoverColor: isDark ? Colors.white10 : Colors.black12,
+            ),
+            _WindowButton(
+              icon: Icons.crop_square,
+              tooltip: '最大化',
+              onPressed: () async {
+                if (await windowManager.isMaximized()) {
+                  windowManager.unmaximize();
+                } else {
+                  windowManager.maximize();
+                }
+              },
+              hoverColor: isDark ? Colors.white10 : Colors.black12,
+            ),
+            _WindowButton(
+              icon: Icons.close,
+              tooltip: '关闭',
+              onPressed: () => windowManager.close(),
+              hoverColor: Colors.red.withValues(alpha: 0.8),
+              hoverIconColor: Colors.white,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -456,6 +490,92 @@ class _ToolbarButton extends StatelessWidget {
             icon,
             size: 18,
             color: isDark ? Colors.white70 : Colors.black54,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 工具栏文字按钮（与 Mac 端「新建终端」文字按钮对齐）
+class _ToolbarTextButton extends StatelessWidget {
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+
+  const _ToolbarTextButton({
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(4),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: isDark ? Colors.white70 : Colors.black54,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 窗口控制按钮（最小化/最大化/关闭）
+class _WindowButton extends StatefulWidget {
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Color hoverColor;
+  final Color? hoverIconColor;
+
+  const _WindowButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    required this.hoverColor,
+    this.hoverIconColor,
+  });
+
+  @override
+  State<_WindowButton> createState() => _WindowButtonState();
+}
+
+class _WindowButtonState extends State<_WindowButton> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final defaultColor = isDark ? Colors.white70 : Colors.black54;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: widget.onPressed,
+        child: Container(
+          width: 46,
+          height: 38,
+          color: _isHovering ? widget.hoverColor : Colors.transparent,
+          alignment: Alignment.center,
+          child: Icon(
+            widget.icon,
+            size: 16,
+            color: _isHovering && widget.hoverIconColor != null
+                ? widget.hoverIconColor
+                : defaultColor,
           ),
         ),
       ),

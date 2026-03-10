@@ -54,7 +54,7 @@ class _FileExplorerViewState extends State<FileExplorerView> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF252526) : const Color(0xFFF8F8F8);
+    final bgColor = isDark ? const Color(0xFF232425) : const Color(0xFFF8F8F8);
     final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Container(
@@ -75,7 +75,7 @@ class _FileExplorerViewState extends State<FileExplorerView> {
             child: const Text('打开文件夹', style: TextStyle(fontSize: 13)),
           ),
           const SizedBox(height: 4),
-          Text('Ctrl+O', style: TextStyle(fontSize: 11, color: Colors.grey[500], fontFamily: 'Consolas')),
+          Text('Ctrl+O', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
         ],
       ),
     );
@@ -130,7 +130,6 @@ class _FileExplorerViewState extends State<FileExplorerView> {
                   widget.rootPath ?? '',
                   style: TextStyle(
                     fontSize: 11,
-                    fontFamily: 'Consolas',
                     color: Colors.grey[500],
                   ),
                   maxLines: 1,

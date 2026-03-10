@@ -9,60 +9,51 @@ struct SkillsSettingsView: View {
     private let service = SkillsService.shared
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
-                // 标题
-                HStack {
-                    Text("技能管理")
-                        .font(.title2.bold())
-                    Spacer()
-                    Text("\(skills.count) 个技能")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(.horizontal)
+        VStack(alignment: .leading, spacing: 20) {
+            // 说明
+            HStack(spacing: 8) {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 12))
+                    .foregroundColor(.blue.opacity(0.7))
+                Text("技能是自定义指令文件，可为 AI 工具提供额外的上下文和行为规则。配置后将自动写入对应工具的配置目录。")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary.opacity(0.7))
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color.blue.opacity(0.04))
+            )
 
-                // 说明
-                HStack(spacing: 8) {
-                    Image(systemName: "info.circle")
-                        .foregroundColor(.blue)
-                    Text("技能是自定义指令文件，可为 AI 工具提供额外的上下文和行为规则。配置后将自动写入对应工具的配置目录。")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                }
-                .padding(10)
-                .background(
-                    RoundedRectangle(cornerRadius: 6)
-                        .fill(Color.blue.opacity(0.05))
-                )
-                .padding(.horizontal)
-
-                // 技能列表
+            // 技能列表
+            SettingsSection(title: "已配置 (\(skills.count))") {
                 if skills.isEmpty {
                     emptyState
                 } else {
                     skillList
                 }
-
-                // 操作按钮
-                HStack(spacing: 12) {
-                    Button(action: { showAddSheet = true }) {
-                        Label("添加技能", systemImage: "plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    Spacer()
-
-                    Button(action: refresh) {
-                        Label("刷新", systemImage: "arrow.clockwise")
-                    }
-                    .buttonStyle(.bordered)
-                }
-                .padding(.horizontal)
             }
-            .padding(.vertical)
+
+            // 操作按钮
+            HStack(spacing: 10) {
+                Button(action: { showAddSheet = true }) {
+                    Label("添加技能", systemImage: "plus")
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.regular)
+
+                Spacer()
+
+                Button(action: refresh) {
+                    Label("刷新", systemImage: "arrow.clockwise")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.regular)
+            }
+
+            Spacer()
         }
-        .navigationTitle("技能")
+        .frame(maxWidth: .infinity, alignment: .leading)
         .onAppear { refresh() }
         .sheet(isPresented: $showAddSheet) {
             SkillFormSheet(skill: nil) {
@@ -81,26 +72,27 @@ struct SkillsSettingsView: View {
     private var emptyState: some View {
         VStack(spacing: 12) {
             Image(systemName: "star.circle")
-                .font(.system(size: 36))
-                .foregroundColor(.secondary.opacity(0.5))
+                .font(.system(size: 32))
+                .foregroundColor(.secondary.opacity(0.4))
 
             Text("还没有自定义技能")
+                .font(.system(size: 14))
                 .foregroundColor(.secondary)
 
             Text("添加技能为 Claude / Codex / Gemini 提供自定义指令")
-                .font(.caption)
-                .foregroundColor(.secondary.opacity(0.8))
+                .font(.system(size: 12))
+                .foregroundColor(.secondary.opacity(0.7))
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 300)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
+        .padding(.vertical, 30)
     }
 
     // MARK: - Skill List
 
     private var skillList: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 0) {
             ForEach(skills) { skill in
                 SkillCard(
                     skill: skill,
@@ -108,9 +100,13 @@ struct SkillsSettingsView: View {
                     onDelete: { deleteSkill(skill) },
                     onToggle: { app, enabled in toggleSkill(skill, app: app, enabled: enabled) }
                 )
+
+                if skill.id != skills.last?.id {
+                    Divider()
+                        .padding(.horizontal, 16)
+                }
             }
         }
-        .padding(.horizontal)
     }
 
     // MARK: - Actions
@@ -143,23 +139,13 @@ struct SkillCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 12) {
-                // 图标
-                Circle()
-                    .fill(Color.purple.opacity(0.8))
-                    .frame(width: 32, height: 32)
-                    .overlay {
-                        Image(systemName: "star.fill")
-                            .font(.system(size: 14))
-                            .foregroundColor(.white)
-                    }
-
                 // 信息
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(skill.name)
-                        .font(.system(size: 13, weight: .medium))
+                        .font(.system(size: 14, weight: .medium))
                     if !skill.description.isEmpty {
                         Text(skill.description)
-                            .font(.system(size: 11))
+                            .font(.system(size: 12))
                             .foregroundColor(.secondary)
                             .lineLimit(2)
                     }
@@ -175,7 +161,8 @@ struct SkillCard: View {
 
                     Button(action: { showDeleteConfirm = true }) {
                         Image(systemName: "trash")
-                            .foregroundColor(.red)
+                            .font(.system(size: 12))
+                            .foregroundColor(.red.opacity(0.6))
                     }
                     .buttonStyle(.plain)
                     .confirmationDialog("确认删除", isPresented: $showDeleteConfirm) {
@@ -195,20 +182,15 @@ struct SkillCard: View {
                         set: { onToggle(app, $0) }
                     )) {
                         Text(appDisplayName(app))
-                            .font(.system(size: 11))
+                            .font(.system(size: 12))
                     }
                     .toggleStyle(.switch)
                     .controlSize(.mini)
                 }
             }
-            .padding(.leading, 44)
         }
-        .padding(12)
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color(nsColor: .controlBackgroundColor))
-                .shadow(color: .black.opacity(0.05), radius: 2, y: 1)
-        )
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
     }
 
     private func appDisplayName(_ app: String) -> String {

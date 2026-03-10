@@ -38,8 +38,8 @@ class _InlineSettingsViewState extends State<InlineSettingsView> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF1E1E1E) : Colors.white;
-    final sidebarBg = isDark ? const Color(0xFF252526) : const Color(0xFFF8F8F8);
+    final bgColor = isDark ? const Color(0xFF1C1E21) : Colors.white;
+    final sidebarBg = isDark ? const Color(0xFF232425) : const Color(0xFFF8F8F8);
     final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return CallbackShortcuts(
@@ -54,7 +54,7 @@ class _InlineSettingsViewState extends State<InlineSettingsView> {
             children: [
               // 左侧菜单
               Container(
-                width: 190,
+                width: 200,
                 color: sidebarBg,
                 child: Column(
                   children: [
@@ -93,22 +93,7 @@ class _InlineSettingsViewState extends State<InlineSettingsView> {
                     ),
                     Divider(height: 1, color: borderColor),
                     // 底部返回按钮
-                    InkWell(
-                      onTap: widget.onClose,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                        child: Row(
-                          children: [
-                            Icon(Icons.chevron_left, size: 16, color: Colors.grey[500]),
-                            const SizedBox(width: 4),
-                            Text(
-                              '返回应用程序',
-                              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                    _SettingsBackButton(onTap: widget.onClose),
                   ],
                 ),
               ),
@@ -121,17 +106,17 @@ class _InlineSettingsViewState extends State<InlineSettingsView> {
                   children: [
                     // 标题
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                      padding: const EdgeInsets.fromLTRB(28, 20, 28, 14),
                       child: Text(
                         _selectedTab.label,
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                       ),
                     ),
                     Divider(height: 1, color: borderColor),
                     // 内容
                     Expanded(
                       child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(24),
+                        padding: const EdgeInsets.all(28),
                         child: _buildContent(),
                       ),
                     ),
@@ -167,8 +152,8 @@ class _InlineSettingsViewState extends State<InlineSettingsView> {
   }
 }
 
-/// 侧栏菜单项
-class _SidebarItem extends StatelessWidget {
+/// 侧栏菜单项（带 Hover 效果）
+class _SidebarItem extends StatefulWidget {
   final SettingsTab tab;
   final bool isSelected;
   final VoidCallback onTap;
@@ -180,44 +165,67 @@ class _SidebarItem extends StatelessWidget {
   });
 
   @override
+  State<_SidebarItem> createState() => _SidebarItemState();
+}
+
+class _SidebarItemState extends State<_SidebarItem> {
+  bool _isHovering = false;
+
+  @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final selectedBg = isDark ? const Color(0xFF37373D) : const Color(0xFFE8E8E8);
+    final hoverBg = isDark
+        ? const Color(0xFF37373D).withValues(alpha: 0.5)
+        : const Color(0xFFE8E8E8).withValues(alpha: 0.5);
+
+    Color bgColor;
+    if (widget.isSelected) {
+      bgColor = selectedBg;
+    } else if (_isHovering) {
+      bgColor = hoverBg;
+    } else {
+      bgColor = Colors.transparent;
+    }
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(5),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: isSelected ? selectedBg : Colors.transparent,
-            borderRadius: BorderRadius.circular(5),
-          ),
-          child: Row(
-            children: [
-              SizedBox(
-                width: 18,
-                child: Icon(
-                  _iconForTab(tab),
-                  size: 12,
-                  color: isSelected
-                      ? (isDark ? Colors.white : Colors.black87)
-                      : Colors.grey[500],
+      child: MouseRegion(
+        onEnter: (_) => setState(() => _isHovering = true),
+        onExit: (_) => setState(() => _isHovering = false),
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: bgColor,
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  child: Icon(
+                    _iconForTab(widget.tab),
+                    size: 13,
+                    color: widget.isSelected
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : Colors.grey[500],
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                tab.label,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: isSelected
-                      ? (isDark ? Colors.white : Colors.black87)
-                      : (isDark ? Colors.white70 : Colors.black54),
+                const SizedBox(width: 8),
+                Text(
+                  widget.tab.label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: widget.isSelected
+                        ? (isDark ? Colors.white : Colors.black87)
+                        : (isDark ? Colors.white70 : Colors.black54),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -243,5 +251,49 @@ class _SidebarItem extends StatelessWidget {
       case SettingsTab.about:
         return Icons.info;
     }
+  }
+}
+
+/// 返回按钮（带 Hover 效果）
+class _SettingsBackButton extends StatefulWidget {
+  final VoidCallback onTap;
+
+  const _SettingsBackButton({required this.onTap});
+
+  @override
+  State<_SettingsBackButton> createState() => _SettingsBackButtonState();
+}
+
+class _SettingsBackButtonState extends State<_SettingsBackButton> {
+  bool _isHovering = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final color = _isHovering
+        ? (isDark ? Colors.white : Colors.black87)
+        : Colors.grey[500]!;
+
+    return MouseRegion(
+      onEnter: (_) => setState(() => _isHovering = true),
+      onExit: (_) => setState(() => _isHovering = false),
+      child: GestureDetector(
+        onTap: widget.onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          color: Colors.transparent,
+          child: Row(
+            children: [
+              Icon(Icons.chevron_left, size: 16, color: color),
+              const SizedBox(width: 4),
+              Text(
+                '返回应用程序',
+                style: TextStyle(fontSize: 14, color: color),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_pty/flutter_pty.dart';
 import 'package:provider/provider.dart';
 import 'package:xterm/xterm.dart';
@@ -98,8 +99,8 @@ class _TabHeaderState extends State<_TabHeader> {
         height: 26,
         padding: const EdgeInsets.symmetric(horizontal: 8),
         decoration: BoxDecoration(
-          color: widget.isDark ? const Color(0xFF252526) : const Color(0xFFF3F3F3),
-          border: Border(bottom: BorderSide(color: widget.borderColor, width: 1)),
+          color: widget.isDark ? const Color(0xFF1C1E21) : const Color(0xFFF8F8F8),
+          border: Border(bottom: BorderSide(color: widget.borderColor, width: 0.5)),
         ),
         child: Row(
           children: [
@@ -139,6 +140,7 @@ class TerminalWidget extends StatefulWidget {
 class _TerminalWidgetState extends State<TerminalWidget> with AutomaticKeepAliveClientMixin {
   late final Terminal _terminal;
   Pty? _pty;
+  List<int> _utf8Buffer = [];
 
   @override
   bool get wantKeepAlive => true;
@@ -161,10 +163,16 @@ class _TerminalWidgetState extends State<TerminalWidget> with AutomaticKeepAlive
     env['COLORTERM'] = 'truecolor';
     env.putIfAbsent('LANG', () => 'en_US.UTF-8');
 
-    // Windows 使用 powershell 或 cmd
-    final shell = Platform.isWindows
-        ? (env['COMSPEC'] ?? 'C:\\Windows\\System32\\cmd.exe')
-        : (env['SHELL'] ?? '/bin/bash');
+    // Windows 使用 cmd 并在 PTY 内设置 UTF-8 代码页
+    final String shell;
+    final List<String> shellArgs;
+    if (Platform.isWindows) {
+      shell = env['COMSPEC'] ?? 'C:\\Windows\\System32\\cmd.exe';
+      shellArgs = ['/k', 'chcp', '65001'];
+    } else {
+      shell = env['SHELL'] ?? '/bin/bash';
+      shellArgs = ['--login'];
+    }
 
     // 工作目录
     String? cwd = widget.workingDirectory;
@@ -175,14 +183,32 @@ class _TerminalWidgetState extends State<TerminalWidget> with AutomaticKeepAlive
     try {
       _pty = Pty.start(
         shell,
-        arguments: Platform.isWindows ? [] : ['--login'],
+        arguments: shellArgs,
         environment: env,
         workingDirectory: cwd,
       );
 
-      // PTY 输出 → Terminal
+      // PTY 输出 → Terminal（流式 UTF-8 解码，处理跨 chunk 的多字节字符）
       _pty!.output.listen((data) {
-        _terminal.write(String.fromCharCodes(data));
+        _utf8Buffer.addAll(data);
+        // 找到最后一个完整 UTF-8 字符的边界
+        int safeLen = _utf8Buffer.length;
+        for (int i = _utf8Buffer.length - 1; i >= 0 && i >= _utf8Buffer.length - 4; i--) {
+          final byte = _utf8Buffer[i];
+          if (byte < 0x80) { break; } // ASCII，完整
+          if (byte >= 0xC0) { // 多字节起始字节
+            final expectedLen = byte >= 0xF0 ? 4 : byte >= 0xE0 ? 3 : 2;
+            if (i + expectedLen > _utf8Buffer.length) {
+              safeLen = i; // 不完整，截断到这里
+            }
+            break;
+          }
+        }
+        if (safeLen > 0) {
+          final safe = _utf8Buffer.sublist(0, safeLen);
+          _utf8Buffer = _utf8Buffer.sublist(safeLen);
+          _terminal.write(utf8.decode(safe, allowMalformed: true));
+        }
       });
 
       // Terminal 输入 → PTY
@@ -203,6 +229,59 @@ class _TerminalWidgetState extends State<TerminalWidget> with AutomaticKeepAlive
   void dispose() {
     _pty?.kill();
     super.dispose();
+  }
+
+  /// Windows IME 兼容：普通可打印字符走 TextInput 通道（支持中文 IME），
+  /// 只有控制键/修饰键组合由终端直接处理。
+  KeyEventResult _handleTerminalKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+
+    final isCtrl = HardwareKeyboard.instance.isControlPressed;
+    final isAlt = HardwareKeyboard.instance.isAltPressed;
+
+    // Ctrl/Alt 组合键由终端处理（如 Ctrl+C, Ctrl+L, Alt+F 等）
+    if (isCtrl || isAlt) return KeyEventResult.ignored;
+
+    final key = event.logicalKey;
+
+    // 功能键、方向键、Tab、Escape 由终端处理
+    if (key == LogicalKeyboardKey.escape ||
+        key == LogicalKeyboardKey.tab ||
+        key == LogicalKeyboardKey.arrowUp ||
+        key == LogicalKeyboardKey.arrowDown ||
+        key == LogicalKeyboardKey.arrowLeft ||
+        key == LogicalKeyboardKey.arrowRight ||
+        key == LogicalKeyboardKey.home ||
+        key == LogicalKeyboardKey.end ||
+        key == LogicalKeyboardKey.pageUp ||
+        key == LogicalKeyboardKey.pageDown ||
+        key == LogicalKeyboardKey.insert ||
+        key == LogicalKeyboardKey.delete ||
+        key == LogicalKeyboardKey.f1 ||
+        key == LogicalKeyboardKey.f2 ||
+        key == LogicalKeyboardKey.f3 ||
+        key == LogicalKeyboardKey.f4 ||
+        key == LogicalKeyboardKey.f5 ||
+        key == LogicalKeyboardKey.f6 ||
+        key == LogicalKeyboardKey.f7 ||
+        key == LogicalKeyboardKey.f8 ||
+        key == LogicalKeyboardKey.f9 ||
+        key == LogicalKeyboardKey.f10 ||
+        key == LogicalKeyboardKey.f11 ||
+        key == LogicalKeyboardKey.f12) {
+      return KeyEventResult.ignored;
+    }
+
+    // Enter 和 Backspace 由终端处理
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.backspace) {
+      return KeyEventResult.ignored;
+    }
+
+    // 其他可打印字符：跳过终端的 keyInput 处理，
+    // 让 Flutter TextInput 通道处理（支持 IME 中文输入）
+    return KeyEventResult.skipRemainingHandlers;
   }
 
   @override
@@ -268,6 +347,11 @@ class _TerminalWidgetState extends State<TerminalWidget> with AutomaticKeepAlive
       child: TerminalView(
         _terminal,
         theme: termTheme,
+        autofocus: true,
+        hardwareKeyboardOnly: false,
+        keyboardType: TextInputType.text,
+        deleteDetection: true,
+        onKeyEvent: _handleTerminalKeyEvent,
         textStyle: const TerminalStyle(
           fontSize: 14,
           fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',

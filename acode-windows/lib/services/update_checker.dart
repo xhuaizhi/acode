@@ -98,17 +98,4 @@ class UpdateChecker extends ChangeNotifier {
       exit(0);
     } catch (_) {}
   }
-
-  /// 版本比较
-  bool _isNewerVersion(String remote, String local) {
-    final remoteParts = remote.split('.').map(int.tryParse).toList();
-    final localParts = local.split('.').map(int.tryParse).toList();
-    for (int i = 0; i < 3; i++) {
-      final r = (i < remoteParts.length ? remoteParts[i] : 0) ?? 0;
-      final l = (i < localParts.length ? localParts[i] : 0) ?? 0;
-      if (r > l) return true;
-      if (r < l) return false;
-    }
-    return false;
-  }
 }

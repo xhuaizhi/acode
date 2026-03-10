@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../app/app_state.dart';
 
 /// 常规设置页
 class GeneralSettingsView extends StatefulWidget {
@@ -43,7 +46,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -51,7 +54,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
         _SectionHeader(title: '外观'),
         const SizedBox(height: 8),
         _SettingCard(
-          color: cardColor,
+          borderColor: borderColor,
           children: [
             _DropdownSetting(
               label: '主题',
@@ -64,6 +67,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
               onChanged: (v) {
                 setState(() => _theme = v);
                 _saveSetting('theme', v);
+                context.read<AppState>().setThemeMode(v);
               },
             ),
             const Divider(height: 1),
@@ -95,7 +99,7 @@ class _GeneralSettingsViewState extends State<GeneralSettingsView> {
         _SectionHeader(title: '终端'),
         const SizedBox(height: 8),
         _SettingCard(
-          color: cardColor,
+          borderColor: borderColor,
           children: [
             _TextFieldSetting(
               label: '默认 Shell',
@@ -130,17 +134,17 @@ class _SectionHeader extends StatelessWidget {
 }
 
 class _SettingCard extends StatelessWidget {
-  final Color color;
+  final Color borderColor;
   final List<Widget> children;
 
-  const _SettingCard({required this.color, required this.children});
+  const _SettingCard({required this.borderColor, required this.children});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
       ),
       child: Column(children: children),
     );
@@ -166,14 +170,14 @@ class _DropdownSetting extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 13)),
+          Text(label, style: const TextStyle(fontSize: 14)),
           const Spacer(),
           DropdownButton<String>(
             value: value,
             underline: const SizedBox.shrink(),
             isDense: true,
             items: items.entries
-                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 13))))
+                .map((e) => DropdownMenuItem(value: e.key, child: Text(e.value, style: const TextStyle(fontSize: 14))))
                 .toList(),
             onChanged: (v) {
               if (v != null) onChanged(v);
@@ -206,7 +210,7 @@ class _SliderSetting extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 13)),
+          Text(label, style: const TextStyle(fontSize: 14)),
           const SizedBox(width: 16),
           Expanded(
             child: Slider(
@@ -221,7 +225,7 @@ class _SliderSetting extends StatelessWidget {
             width: 36,
             child: Text(
               '${value.toInt()}pt',
-              style: const TextStyle(fontSize: 13, fontFamily: 'Consolas'),
+              style: const TextStyle(fontSize: 13),
             ),
           ),
         ],
@@ -247,12 +251,12 @@ class _TextFieldSetting extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       child: Row(
         children: [
-          Text(label, style: const TextStyle(fontSize: 13)),
+          Text(label, style: const TextStyle(fontSize: 14)),
           const SizedBox(width: 16),
           Expanded(
             child: TextField(
               controller: TextEditingController(text: value),
-              style: const TextStyle(fontSize: 13),
+              style: const TextStyle(fontSize: 14),
               decoration: const InputDecoration(
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),

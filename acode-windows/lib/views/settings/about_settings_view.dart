@@ -32,7 +32,7 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
   Widget build(BuildContext context) {
     final appState = context.watch<AppState>();
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -62,7 +62,6 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
                       fontSize: 32,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
-                      fontFamily: 'Consolas',
                     ),
                   ),
                 ),
@@ -70,25 +69,20 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
               const SizedBox(height: 12),
               const Text(
                 'ACode',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 28, fontWeight: FontWeight.w700),
               ),
-              const SizedBox(height: 4),
-              Text(
-                '一站式 AI 编程终端',
-                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-              ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 '版本 $_version ($_build)',
-                style: TextStyle(fontSize: 12, fontFamily: 'Consolas', color: Colors.grey[400]),
+                style: TextStyle(fontSize: 13, color: Colors.grey[500]),
               ),
               const SizedBox(height: 8),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 32),
                 child: Text(
-                  '集成多家大模型，让你在一个窗口内完成代码编写、调试与部署',
+                  '一站式 AI 编程终端，集成多家大模型，让你在一个窗口内完成代码编写、调试与部署',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                  style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                 ),
               ),
             ],
@@ -100,7 +94,10 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
         // 信息
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+          ),
           child: Column(
             children: [
               _InfoRow(label: '平台', value: 'Windows (Flutter)'),
@@ -126,7 +123,7 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
                       children: [
                         Text(
                           _qqGroup,
-                          style: TextStyle(fontSize: 13, fontFamily: 'Consolas', color: Colors.grey[500]),
+                          style: TextStyle(fontSize: 13, color: Colors.grey[500]),
                         ),
                         const SizedBox(width: 4),
                         Icon(Icons.copy, size: 12, color: Colors.grey[400]),
@@ -144,7 +141,10 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
         // 链接
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+          ),
           child: Column(
             children: [
               _LinkRow(
@@ -173,7 +173,10 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
         // 版本更新
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+          ),
           child: _buildUpdateSection(appState),
         ),
 
@@ -182,7 +185,7 @@ class _AboutSettingsViewState extends State<AboutSettingsView> {
         // 版权
         Center(
           child: Text(
-            '© 2025 ACode Project. All rights reserved.',
+            'Copyright \u00A9 2025 ACode. All rights reserved.',
             style: TextStyle(fontSize: 11, color: Colors.grey[400]),
           ),
         ),
@@ -286,11 +289,11 @@ class _InfoRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(label, style: const TextStyle(fontSize: 13)),
+        Text(label, style: const TextStyle(fontSize: 14)),
         const Spacer(),
         Text(
           value,
-          style: TextStyle(fontSize: 13, fontFamily: 'Consolas', color: Colors.grey[500]),
+          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
         ),
       ],
     );
@@ -317,7 +320,7 @@ class _LinkRow extends StatelessWidget {
         children: [
           Icon(icon, size: 16, color: Colors.grey[500]),
           const SizedBox(width: 8),
-          Text(label, style: const TextStyle(fontSize: 13)),
+          Text(label, style: const TextStyle(fontSize: 14)),
           const Spacer(),
           Icon(Icons.open_in_new, size: 14, color: Colors.grey[400]),
         ],

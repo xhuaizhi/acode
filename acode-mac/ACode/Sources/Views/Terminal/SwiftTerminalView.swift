@@ -126,13 +126,6 @@ struct SwiftTerminalView: NSViewRepresentable {
 
     func makeNSView(context: Context) -> NSView {
         let container = NSView()
-        container.wantsLayer = true
-
-        // 设置容器背景色与终端一致，用于填充 padding 区域
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        container.layer?.backgroundColor = isDark
-            ? NSColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1.0).cgColor
-            : NSColor.textBackgroundColor.cgColor
 
         let terminalView = TerminalViewCache.shared.getOrCreate(
             tabId: tabId,
@@ -147,14 +140,12 @@ struct SwiftTerminalView: NSViewRepresentable {
         container.addSubview(terminalView)
         terminalView.translatesAutoresizingMaskIntoConstraints = false
 
-        // 添加内边距，避免终端内容紧贴容器边缘
-        let hPadding: CGFloat = 12
-        let vPadding: CGFloat = 6
+        // 终端视图填满容器（内边距改由 SwiftUI 层 .padding() 控制）
         NSLayoutConstraint.activate([
-            terminalView.topAnchor.constraint(equalTo: container.topAnchor, constant: vPadding),
-            terminalView.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -vPadding),
-            terminalView.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: hPadding),
-            terminalView.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -hPadding),
+            terminalView.topAnchor.constraint(equalTo: container.topAnchor),
+            terminalView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
+            terminalView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            terminalView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
         ])
 
         return container
@@ -170,12 +161,6 @@ struct SwiftTerminalView: NSViewRepresentable {
             let font = NSFont.monospacedSystemFont(ofSize: fontSize, weight: .regular)
             terminalView.font = font
         }
-
-        // 同步容器背景色（响应深色/浅色模式切换）
-        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        nsView.layer?.backgroundColor = isDark
-            ? NSColor(red: 0.11, green: 0.12, blue: 0.13, alpha: 1.0).cgColor
-            : NSColor.textBackgroundColor.cgColor
 
         // 隐藏 SwiftTerm 内部的 NSScroller
         for subview in terminalView.subviews {

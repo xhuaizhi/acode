@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -20,13 +21,14 @@ class _FileEditorViewState extends State<FileEditorView> {
   String? _errorMessage;
   bool _isModified = false;
   _FileContentType _fileType = _FileContentType.text;
-  late TextEditingController _controller;
+  late _SyntaxHighlightController _controller;
   late FocusNode _focusNode;
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
+    _controller = _SyntaxHighlightController();
     _focusNode = FocusNode();
     _loadFile();
   }
@@ -43,6 +45,7 @@ class _FileEditorViewState extends State<FileEditorView> {
   void dispose() {
     _controller.dispose();
     _focusNode.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -101,7 +104,7 @@ class _FileEditorViewState extends State<FileEditorView> {
         final isText = _textExtensions.contains(ext) || specialTextFiles.contains(fileName);
         String? text;
         try {
-          text = String.fromCharCodes(data);
+          text = utf8.decode(data, allowMalformed: true);
         } catch (_) {
           if (!isText) {
             if (mounted) {
@@ -186,6 +189,10 @@ class _FileEditorViewState extends State<FileEditorView> {
     final ext = p.extension(widget.filePath).toLowerCase().replaceFirst('.', '');
     final language = SyntaxHighlighter.languageForExtension(ext);
 
+    // 更新 controller 的语法高亮参数
+    _controller.syntaxTheme = theme;
+    _controller.language = language;
+
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyS, control: true): _saveFile,
@@ -195,61 +202,37 @@ class _FileEditorViewState extends State<FileEditorView> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 行号栏
+            // 行号栏（与编辑器共享滚动）
             _LineNumberGutter(
               text: _controller.text,
               isDark: isDark,
+              scrollController: _scrollController,
             ),
-            // 编辑器区域（原始 TextField 叠加语法高亮层）
+            // 单一 TextField — 直接通过 controller 内置语法高亮
             Expanded(
-              child: Stack(
-                children: [
-                  // 语法高亮层（只读，显示在底层）
-                  SingleChildScrollView(
-                    padding: const EdgeInsets.only(top: 12, left: 4, right: 16, bottom: 16),
-                    child: RichText(
-                      text: TextSpan(
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',
-                          height: 1.5,
-                          color: theme.plain,
-                        ),
-                        children: SyntaxHighlighter.highlight(
-                          _controller.text,
-                          language: language,
-                          theme: theme,
-                        ),
-                      ),
-                    ),
-                  ),
-                  // 透明 TextField（接收输入，光标和选区可见）
-                  TextField(
-                    controller: _controller,
-                    focusNode: _focusNode,
-                    maxLines: null,
-                    expands: true,
-                    textAlignVertical: TextAlignVertical.top,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',
-                      color: Colors.transparent,
-                      height: 1.5,
-                    ),
-                    cursorColor: isDark ? Colors.white70 : Colors.black87,
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.only(top: 12, left: 4, right: 16, bottom: 16),
-                    ),
-                    onChanged: (text) {
-                      if (!_isModified) {
-                        setState(() => _isModified = true);
-                      } else {
-                        setState(() {});
-                      }
-                    },
-                  ),
-                ],
+              child: TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                scrollController: _scrollController,
+                maxLines: null,
+                expands: true,
+                textAlignVertical: TextAlignVertical.top,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',
+                  color: theme.plain,
+                  height: 1.5,
+                ),
+                cursorColor: isDark ? Colors.white70 : Colors.black87,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.only(top: 12, left: 4, right: 16, bottom: 16),
+                ),
+                onChanged: (text) {
+                  setState(() {
+                    _isModified = true;
+                  });
+                },
               ),
             ),
           ],
@@ -272,7 +255,7 @@ class _FileEditorViewState extends State<FileEditorView> {
           const SizedBox(height: 12),
           Text('无法预览此文件类型', style: TextStyle(fontSize: 13, color: Colors.grey[500])),
           const SizedBox(height: 4),
-          Text(ext, style: TextStyle(fontSize: 11, fontFamily: 'Consolas', color: Colors.grey[400])),
+          Text(ext, style: TextStyle(fontSize: 11, color: Colors.grey[400])),
           const SizedBox(height: 12),
           OutlinedButton(
             onPressed: () {
@@ -292,12 +275,17 @@ class _FileEditorViewState extends State<FileEditorView> {
 
 enum _FileContentType { text, image, unsupported }
 
-/// 行号栏 — 对标 Mac 版 LineNumberRulerView
+/// 行号栏 — 与编辑器共享 ScrollController 实现同步滚动
 class _LineNumberGutter extends StatelessWidget {
   final String text;
   final bool isDark;
+  final ScrollController scrollController;
 
-  const _LineNumberGutter({required this.text, required this.isDark});
+  const _LineNumberGutter({
+    required this.text,
+    required this.isDark,
+    required this.scrollController,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -307,32 +295,68 @@ class _LineNumberGutter extends StatelessWidget {
     final bgColor = isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF8F8F8);
     final numColor = isDark ? const Color(0xFF858585) : const Color(0xFF999999);
 
-    return Container(
-      width: gutterWidth,
-      color: bgColor,
-      padding: const EdgeInsets.only(top: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: List.generate(lineCount, (i) {
-          return SizedBox(
-            height: 19.5, // fontSize 13 * lineHeight 1.5
-            child: Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Text(
-                '${i + 1}',
-                textAlign: TextAlign.right,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',
-                  color: numColor,
-                  height: 1.5,
-                ),
-              ),
+    return AnimatedBuilder(
+      animation: scrollController,
+      builder: (context, child) {
+        final offset = scrollController.hasClients ? scrollController.offset : 0.0;
+        return Container(
+          width: gutterWidth,
+          color: bgColor,
+          padding: const EdgeInsets.only(top: 12),
+          clipBehavior: Clip.hardEdge,
+          child: Transform.translate(
+            offset: Offset(0, -offset),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(lineCount, (i) {
+                return SizedBox(
+                  height: 19.5,
+                  child: Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: Text(
+                      '${i + 1}',
+                      textAlign: TextAlign.right,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontFamily: 'Cascadia Code, Consolas, Courier New, monospace',
+                        color: numColor,
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                );
+              }),
             ),
-          );
-        }),
-      ),
+          ),
+        );
+      },
     );
+  }
+}
+
+/// 自定义 TextEditingController — 在 buildTextSpan 中直接返回语法高亮
+class _SyntaxHighlightController extends TextEditingController {
+  SyntaxTheme syntaxTheme = SyntaxHighlighter.darkTheme;
+  String language = 'generic';
+
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final spans = SyntaxHighlighter.highlight(
+      text,
+      language: language,
+      theme: syntaxTheme,
+    );
+
+    if (spans.isEmpty) {
+      return TextSpan(text: text, style: style);
+    }
+
+    return TextSpan(style: style, children: spans);
   }
 }
 
@@ -405,7 +429,7 @@ class _ImagePreviewWidgetState extends State<_ImagePreviewWidget> {
                       const SizedBox(width: 8),
                       Text(
                         '${(_scale * 100).toInt()}%',
-                        style: TextStyle(fontSize: 10, fontFamily: 'Consolas', color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 10, color: Colors.grey[500]),
                       ),
                       const SizedBox(width: 8),
                       InkWell(

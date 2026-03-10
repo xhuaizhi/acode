@@ -17,7 +17,7 @@ void main() async {
     center: true,
     backgroundColor: Colors.transparent,
     title: 'ACode',
-    titleBarStyle: TitleBarStyle.normal,
+    titleBarStyle: TitleBarStyle.hidden,
   );
 
   windowManager.waitUntilReadyToShow(windowOptions, () async {
@@ -41,25 +41,27 @@ class ACodeApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ChangeNotifierProvider.value(
       value: appState,
-      child: MaterialApp(
-        title: 'ACode',
-        debugShowCheckedModeBanner: false,
-        themeMode: ThemeMode.dark,
-        theme: ThemeData(
-          brightness: Brightness.light,
-          colorSchemeSeed: const Color(0xFF007AFF),
-          fontFamily: 'Segoe UI',
-          useMaterial3: true,
-          scaffoldBackgroundColor: Colors.white,
+      child: Consumer<AppState>(
+        builder: (context, state, _) => MaterialApp(
+          title: 'ACode',
+          debugShowCheckedModeBanner: false,
+          themeMode: state.themeMode,
+          theme: ThemeData(
+            brightness: Brightness.light,
+            colorSchemeSeed: const Color(0xFF007AFF),
+            fontFamily: null,
+            useMaterial3: true,
+            scaffoldBackgroundColor: Colors.white,
+          ),
+          darkTheme: ThemeData(
+            brightness: Brightness.dark,
+            colorSchemeSeed: const Color(0xFF007AFF),
+            fontFamily: null,
+            useMaterial3: true,
+            scaffoldBackgroundColor: const Color(0xFF1C1E21),
+          ),
+          home: const Scaffold(body: MainView()),
         ),
-        darkTheme: ThemeData(
-          brightness: Brightness.dark,
-          colorSchemeSeed: const Color(0xFF007AFF),
-          fontFamily: 'Segoe UI',
-          useMaterial3: true,
-          scaffoldBackgroundColor: const Color(0xFF1E1E1E),
-        ),
-        home: const Scaffold(body: MainView()),
       ),
     );
   }

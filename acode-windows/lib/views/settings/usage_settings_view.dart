@@ -34,7 +34,7 @@ class _UsageSettingsViewState extends State<UsageSettingsView> {
     final appState = context.watch<AppState>();
     final usage = appState.sessionUsage;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardColor = isDark ? const Color(0xFF2D2D2D) : const Color(0xFFF5F5F5);
+    final borderColor = isDark ? const Color(0xFF3C3C3C) : const Color(0xFFE0E0E0);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -43,7 +43,10 @@ class _UsageSettingsViewState extends State<UsageSettingsView> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+          ),
           child: Column(
             children: [
               _UsageRow(label: '请求次数', value: '${usage.requestCount}'),
@@ -75,7 +78,10 @@ class _UsageSettingsViewState extends State<UsageSettingsView> {
         const SizedBox(height: 8),
         Container(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(color: cardColor, borderRadius: BorderRadius.circular(8)),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: borderColor.withValues(alpha: 0.5), width: 0.5),
+          ),
           child: _pricingList.isEmpty
               ? Text('加载中...', style: TextStyle(fontSize: 12, color: Colors.grey[500]))
               : Column(
@@ -87,7 +93,7 @@ class _UsageSettingsViewState extends State<UsageSettingsView> {
                           Expanded(
                             child: Text(
                               p.displayName,
-                              style: const TextStyle(fontSize: 12, fontFamily: 'Consolas'),
+                              style: const TextStyle(fontSize: 12),
                             ),
                           ),
                           Text(
@@ -121,14 +127,13 @@ class _UsageRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Text(label, style: const TextStyle(fontSize: 13)),
+        Text(label, style: const TextStyle(fontSize: 14)),
         const Spacer(),
         Text(
           value,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
-            fontFamily: 'Consolas',
             color: valueColor,
           ),
         ),
