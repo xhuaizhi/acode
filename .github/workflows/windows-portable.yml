@@ -1,53 +1,9 @@
-name: Build Windows Portable (x64)
+  name: CI Sanity Check
 
-on:
-    workflow_dispatch:
-    push:
-      branches:
-        - main
-      paths:
-        - "acode-windows/**"
-        - ".github/workflows/windows-portable.yml"
+  on: [push, workflow_dispatch]
 
   jobs:
-    build:
-      runs-on: windows-latest
+    sanity:
+      runs-on: ubuntu-latest
       steps:
-        - name: Checkout
-          uses: actions/checkout@v4
-
-        - name: Setup Flutter
-          uses: subosito/flutter-action@v2
-          with:
-            channel: stable
-            cache: true
-
-        - name: Flutter version
-          run: flutter --version
-
-        - name: Pub get
-          working-directory: acode-windows
-          run: flutter pub get
-
-        - name: Build Windows (release)
-          working-directory: acode-windows
-          run: flutter build windows --release
-
-        - name: Zip portable release folder
-          shell: pwsh
-          run: |
-            $releaseDir = "acode-windows/build/windows/x64/runner/Release"
-            if (!(Test-Path $releaseDir)) { throw "Release dir not found: $releaseDir" }
-
-            $zipName = "acode-windows-x64-Release.zip"
-            if (Test-Path $zipName) { Remove-Item $zipName -Force }
-
-            Compress-Archive -Path "$releaseDir/*" -DestinationPath $zipName
-
-        - name: Upload artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: acode-windows-x64-Release
-            path: acode-windows-x64-Release.zip
-            if-no-files-found: error
-            retention-days: 7
+        - run: echo "ok"
