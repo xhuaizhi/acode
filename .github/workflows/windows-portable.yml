@@ -1,6 +1,6 @@
 name: Build Windows Portable (x64)
 
-  on:
+on:
     workflow_dispatch:
     push:
       branches:
